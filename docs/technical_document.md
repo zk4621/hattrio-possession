@@ -88,7 +88,8 @@ players.
 | tactical homography | **measured, dropped.** The pitch point at the image centre as a coarse ball position: correlation with the ball's x 0.84, but median error 11.7 m in x and 16.1 m in y, lagging the ball by 37 frames. Rule fixed in advance: adopt only if correlation ≥ 0.8, median x error ≤ 10 m and x spread ≥ 5 m. Failed on the median error. |
 | broadcast ATD | **measured, dropped.** We aligned the broadcast timeline to the tactical one by matching player positions (389 of 400 sampled broadcast frames matched a tactical frame with median player error 0.27 m; two constant offsets, one per half; 58.8 % of broadcast frames mapped). Where the tactical ball is missing, the broadcast ball of the matching frame would fill it. Both balls agree well (median 0.76 m, 90th percentile 5.5 m), but the broadcast ball fills only **9.1 %** of the tactical blackout frames: when the tactical camera loses the ball, the broadcast usually shows a replay or a close-up. Rule fixed in advance: adopt only if it fills ≥ 10 %. Dropped. |
 | broadcast homography | not used |
-| videos (tactical, broadcast) | not used |
+| tactical video | **measured, dropped.** A ball detected in the video could fill the tracking's blackouts. We ran a public football ball detector (`football-ball-detection-v2.pt` from Roboflow's `sports` examples, YOLOv8 trained on broadcast football footage; Ultralytics, one pass per frame at native resolution, 0.39 s per frame on an Apple M4 Pro GPU) on 3,000 sampled frames of the two halves and mapped each frame's highest-scoring box to the pitch with the homography. The ball is small in this video (about 6 pixels across, measured from the tracking and the homography). On 1,000 frames where the tracking sees the ball, the detector reports a confident ball (score ≥ 0.25) on 985: in the typical case it is close (median distance to the tracking ball 1.2 m), but only 60 % are within 2 m and the 90th percentile is **31.6 m**. On 22 % of these frames the top box is more than 8 m away; half of those boxes lie outside the touchlines (where the tracked ball is on only 4 % of the frames) and they score almost as high as the right ones (median 0.80 against 0.85), so no score threshold separates them. On 2,000 blackout frames a confident box exists on 93.5 %, but half of them lie outside the lines, so that coverage is mostly false detections. Rule fixed in advance (committed before the run): median ≤ 2 m, 90th percentile ≤ 8 m and confident detections on ≥ 20 % of blackout frames. Failed on the 90th percentile. Dropped; the probe code is not part of the submitted repository. |
+| broadcast video | not used |
 
 Every extra source was judged with a rule written down before measuring, so no decision was tuned
 against anything.
@@ -306,4 +307,8 @@ example 1.62 against 1.64 phase tags active at once).
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on
-the training matches; and detect stoppages from the referee's whistle in the audio track.
+the training matches; and detect stoppages from the referee's whistle in the audio track. The
+video ball detector puts the true ball first on 59 % of the frames where the tracking sees it and
+among its top five boxes on 66 %; a tracker that picks, among the boxes, the one consistent with
+where the ball was last seen might keep the right one. That would need a new rule fixed in
+advance and a detection run over all 64,643 blackout frames (about 7 hours on an Apple GPU).

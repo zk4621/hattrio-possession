@@ -255,6 +255,10 @@ example 1.62 against 1.64 phase tags active at once).
   our 2 s minimum possession length alone caps the score at 0.87; the true labels made 0.2 s
   late score 0.93, 0.5 s late 0.78 and 1 s late 0.56. Scores near 0.9 would need almost every
   possession, including sub-second ones, with boundaries right to a few frames.
+- *A decoder that allows short possessions only where the ball is seen* (down to 6 frames, with
+  2 s kept inside blackouts) moved the cross-validated score from 0.587 to 0.588 and was better on
+  only 3 of 7 matches, so it was not adopted (`scripts/train.py --seen-grid`). The short
+  possessions are lost before the decoder: the frame model does not single them out.
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on

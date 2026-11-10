@@ -14,4 +14,5 @@ def predict_codes(ft: FrameTable, proba_fn: Callable, cfg: DecoderConfig,
                   live_from: dict[int, int] | None = None) -> np.ndarray:
     F, names = build_features(ft)
     proba = proba_fn(F, names)
-    return decode_periods(proba, ft.period, cfg, live_from)
+    seen = F[:, names.index("ball_vis")] == 1
+    return decode_periods(proba, ft.period, cfg, live_from, seen=seen)

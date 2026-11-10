@@ -95,3 +95,61 @@ def test_long_decode_is_fast():
     t = time.time()
     decode(s, DecoderConfig())
     assert time.time() - t < 5.0
+
+
+def valid_per_start(y, mins):
+    """Every maximal run of state k starting at a is at least mins[k][a] long."""
+    return all(z - a >= mins[k][a] for a, z, k in runs_of(y))
+
+
+def brute_force_best_per_start(s, mins, penalty):
+    best = None
+    for y in itertools.product(range(3), repeat=len(s)):
+        y = np.array(y)
+        if valid_per_start(y, mins):
+            v = int(s[np.arange(len(y)), y].sum()) - penalty * int((np.diff(y) != 0).sum())
+            best = v if best is None else max(best, v)
+    return best
+
+
+def test_seen_minimum_matches_brute_force_optimum():
+    rng = np.random.default_rng(3)
+    for _ in range(25):
+        T = 9
+        s = rng.integers(-1000, 0, size=(T, 3), dtype=np.int32)
+        seen = rng.random(T) < 0.5
+        cfg = DecoderConfig(min_len=(3, 3, 2), switch_penalty=200, min_len_seen=2)
+        both = np.append(seen[:-1] & seen[1:], False)          # [s, s+2) seen
+        poss = np.where(both, 2, 3)
+        mins = [poss, poss, np.full(T, 2)]
+        out = decode(s, cfg, seen=seen)
+        assert valid_per_start(out, mins)
+        v = int(s[np.arange(T), out].sum()) - 200 * int((np.diff(out) != 0).sum())
+        assert v == brute_force_best_per_start(s, mins, 200)
+
+
+def test_short_possession_is_kept_only_where_the_ball_is_seen():
+    labels = np.array([H] * 100 + [A] * 10 + [H] * 100)
+    cfg = DecoderConfig(min_len=(50, 50, 50), switch_penalty=0, min_len_seen=6)
+    seen = np.ones(210, bool)
+    assert decode(scores_for(labels), cfg, seen=seen).tolist() == labels.tolist()
+    seen[95:115] = False                                   # the same 10 frames, ball not seen
+    assert (decode(scores_for(labels), cfg, seen=seen) == H).all()
+
+
+def test_without_seen_the_decoder_is_unchanged():
+    rng = np.random.default_rng(4)
+    s = rng.integers(-3000, 0, size=(3000, 3), dtype=np.int32)
+    old = decode(s, DecoderConfig())
+    assert np.array_equal(decode(s, DecoderConfig(min_len_seen=6)), old)       # no seen given
+    assert np.array_equal(decode(s, DecoderConfig(), seen=np.ones(3000, bool)), old)
+
+
+def test_decode_periods_passes_seen_through():
+    period = np.array([0] * 10 + [1] * 210 + [0] * 10)
+    labels = np.array([H] * 100 + [A] * 10 + [H] * 100)
+    proba = np.full((230, 3), 0.01)
+    proba[np.arange(10, 220), labels] = 0.98
+    cfg = DecoderConfig(min_len=(50, 50, 50), switch_penalty=0, min_len_seen=6)
+    out = decode_periods(proba, period, cfg, seen=np.ones(230, bool))
+    assert out[10:220].tolist() == labels.tolist() and (out[:10] == X).all()

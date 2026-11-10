@@ -27,6 +27,9 @@ from possession.sources import attach_dfl_sources, load_flags
 POSS_MIN = [6, 12, 25, 38, 50]
 DEAD_MIN = [25, 50, 75, 125]
 PENALTIES = [0, 2000, 5000, 10000, 20000]
+# --seen-grid: a shorter possession minimum where the ball is seen. Tried on 2026-11-10: mean CV
+# spell_f1 0.5873 -> 0.5880, better on 3 of 7 matches; not adopted.
+SEEN_GRID = ([6, 12, 25, 38, 50], [25, 38, 50, 75], [25, 50, 75], [0, 2000, 5000])
 SUBSAMPLE = 2
 
 
@@ -37,10 +40,11 @@ def prepare(match_id, i, profile, flags, drop):
     blacked = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
     F, names = build_features(deg)
     Fs, _ = build_features(deg.swapped())
+    seen = F[:, names.index("ball_vis")] == 1
     keep = [j for j, n in enumerate(names) if n not in drop]
     names = [names[j] for j in keep]
     return {"id": match_id, "ft": deg, "y": y, "F": F[:, keep], "Fs": Fs[:, keep],
-            "ys": swap_codes(y), "names": names, "blacked": blacked}
+            "ys": swap_codes(y), "names": names, "blacked": blacked, "seen": seen}
 
 
 def training_rows(matches):
@@ -62,12 +66,16 @@ def _init(data):
     _GRID_DATA = data
 
 
+def _config(cfg_tuple) -> DecoderConfig:
+    smin, pmin, dmin, pen = cfg_tuple
+    return DecoderConfig(min_len=(pmin, pmin, dmin), switch_penalty=pen, min_len_seen=smin)
+
+
 def _eval_cfg(cfg_tuple):
-    pmin, dmin, pen = cfg_tuple
-    cfg = DecoderConfig(min_len=(pmin, pmin, dmin), switch_penalty=pen)
+    cfg = _config(cfg_tuple)
     out = []
-    for P, period, y in _GRID_DATA:
-        s = score(y, decode_periods(P, period, cfg))
+    for P, period, y, seen in _GRID_DATA:
+        s = score(y, decode_periods(P, period, cfg, seen=seen))
         out.append((s["spell_f1"], s["macro_f1"]))
     return cfg_tuple, out
 
@@ -79,6 +87,8 @@ def main() -> int:
     ap.add_argument("--out", default=str(MODELS), help="where to write the model and reports")
     ap.add_argument("--drop", nargs="*", default=[])
     ap.add_argument("--rounds", type=int, default=N_ROUNDS)
+    ap.add_argument("--seen-grid", action="store_true",
+                    help="also tune a shorter possession minimum where the ball is seen")
     args = ap.parse_args()
     profile = {"atd": lambda: DegradeProfile.from_json(MODELS / "atd_profile.json"),
                "default": lambda: DEFAULT_PROFILE, "none": lambda: None}[args.profile]()
@@ -103,17 +113,18 @@ def main() -> int:
         del Xtr, ytr, booster
 
     # decoder grid on out-of-fold probabilities
-    data = [(oof[m["id"]], m["ft"].period, m["y"]) for m in matches]
-    grid = list(itertools.product(POSS_MIN, DEAD_MIN, PENALTIES))
+    data = [(oof[m["id"]], m["ft"].period, m["y"], m["seen"]) for m in matches]
+    grid = (list(itertools.product(*SEEN_GRID)) if args.seen_grid
+            else list(itertools.product([None], POSS_MIN, DEAD_MIN, PENALTIES)))
     with Pool(8, initializer=_init, initargs=(data,)) as pool:
         results = pool.map(_eval_cfg, grid)
     table = []
     for cfg_tuple, per in results:
         table.append((float(np.mean([a for a, _ in per])), float(np.mean([b for _, b in per])),
                       cfg_tuple))
-    table.sort(key=lambda r: (-r[0], -r[1], r[2]))
-    best_spell, best_macro, (pmin, dmin, pen) = table[0]
-    cfg = DecoderConfig(min_len=(pmin, pmin, dmin), switch_penalty=pen)
+    table.sort(key=lambda r: (-r[0], -r[1], tuple(-1 if v is None else v for v in r[2])))
+    best_spell, best_macro, best_tuple = table[0]
+    cfg = _config(best_tuple)
     save_decoder(cfg, out / "decoder.json")
     print(f"decoder: {cfg} mean spell_f1 {best_spell:.4f} macro_f1 {best_macro:.4f} "
           f"({time.time() - t0:.0f} s)", flush=True)
@@ -121,12 +132,13 @@ def main() -> int:
     # report
     report = {"profile": args.profile,
               "flags": {k: flags[k] for k in ("proxy", "broadcast", "tags", "phases")}, "dropped": args.drop,
-              "decoder": {"min_len": list(cfg.min_len), "switch_penalty": cfg.switch_penalty},
+              "decoder": {"min_len": list(cfg.min_len), "switch_penalty": cfg.switch_penalty,
+                          "min_len_seen": cfg.min_len_seen},
               "grid_top10": [{"spell_f1": a, "macro_f1": b, "cfg": list(c)} for a, b, c in table[:10]],
               "matches": {}}
     for m in matches:
         y, ft = m["y"], m["ft"]
-        codes = decode_periods(oof[m["id"]], ft.period, cfg)
+        codes = decode_periods(oof[m["id"]], ft.period, cfg, seen=m["seen"])
         graded = y != X
         bl, vis = graded & m["blacked"], graded & ~m["blacked"]
         report["matches"][m["id"]] = {

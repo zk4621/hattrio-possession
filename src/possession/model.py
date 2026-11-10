@@ -65,10 +65,13 @@ def load_proba_fn(path=MODEL_PATH):
 def save_decoder(cfg: DecoderConfig, path=DECODER_PATH) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps({"min_len": list(cfg.min_len),
-                                      "switch_penalty": cfg.switch_penalty}, indent=1))
+                                      "switch_penalty": cfg.switch_penalty,
+                                      "min_len_seen": cfg.min_len_seen}, indent=1))
 
 
 def load_decoder(path=DECODER_PATH) -> DecoderConfig:
     d = json.loads(Path(path).read_text())
+    seen = d.get("min_len_seen")
     return DecoderConfig(min_len=tuple(int(v) for v in d["min_len"]),
-                         switch_penalty=int(d["switch_penalty"]))
+                         switch_penalty=int(d["switch_penalty"]),
+                         min_len_seen=None if seen is None else int(seen))

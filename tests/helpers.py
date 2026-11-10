@@ -161,3 +161,29 @@ def run_lengths(mask):
     m = np.concatenate(([0], np.asarray(mask).astype(np.int8), [0]))
     d = np.diff(m)
     return np.flatnonzero(d == -1) - np.flatnonzero(d == 1)
+
+
+def broadcast_from(tactical, pieces, keep=8, noise=0.2, seed=0):
+    """A broadcast-like table cut from `tactical`, plus the true tactical frame of each row."""
+    rng = np.random.default_rng(seed)
+    parts, truth = [], []
+    for a, b in pieces:
+        n = b - a
+        home = np.full((n, 11, 2), np.nan, np.float32)
+        away = np.full((n, 11, 2), np.nan, np.float32)
+        hk = rng.choice(11, size=keep, replace=False)
+        ak = rng.choice(11, size=keep, replace=False)
+        home[:, hk] = tactical.home[a:b][:, hk] + rng.normal(0, noise, (n, keep, 2))
+        away[:, ak] = tactical.away[a:b][:, ak] + rng.normal(0, noise, (n, keep, 2))
+        ball = tactical.ball[a:b] + rng.normal(0, noise, (n, 2))
+        parts.append((ball, home, away))
+        truth.append(np.arange(a, b))
+    ball = np.concatenate([p[0] for p in parts]).astype(np.float32)
+    home = np.concatenate([p[1] for p in parts]).astype(np.float32)
+    away = np.concatenate([p[2] for p in parts]).astype(np.float32)
+    T = len(ball)
+    ft = FrameTable(pitch=tactical.pitch, ball=ball, home=home, away=away,
+                    home_speed=np.zeros(home.shape[:2], np.float32),
+                    away_speed=np.zeros(away.shape[:2], np.float32),
+                    period=np.zeros(T, np.int8))
+    return ft, np.concatenate(truth)

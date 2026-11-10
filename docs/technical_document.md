@@ -250,6 +250,11 @@ example 1.62 against 1.64 phase tags active at once).
 - *A large gap between in-sample and out-of-fold scores* (0.82 vs 0.59 on DFL) says the model
   memorises match specifics; stronger regularisation or more matches would help.
 - Turnovers deep inside a long blackout are guessed from team movement only.
+- *Ceilings measured on the DFL matches.* With the ball never lost, the same method scores 0.69
+  (0.59 with blackouts), so the blackouts cost about 0.10. With perfect knowledge of every frame,
+  our 2 s minimum possession length alone caps the score at 0.87; the true labels made 0.2 s
+  late score 0.93, 0.5 s late 0.78 and 1 s late 0.56. Scores near 0.9 would need almost every
+  possession, including sub-second ones, with boundaries right to a few frames.
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on

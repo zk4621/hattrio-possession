@@ -8,6 +8,7 @@ import itertools
 import json
 import sys
 import time
+from pathlib import Path
 from multiprocessing import Pool
 
 import numpy as np
@@ -32,7 +33,7 @@ SUBSAMPLE = 2
 def prepare(match_id, i, profile, flags, drop):
     ft, y = load_dfl_match(match_id)
     ft = attach_dfl_sources(ft, y, match_id, i)
-    deg = degrade(ft, profile, seed=i)
+    deg = degrade(ft, profile, seed=i) if profile is not None else ft
     blacked = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
     F, names = build_features(deg)
     Fs, _ = build_features(deg.swapped())
@@ -73,12 +74,16 @@ def _eval_cfg(cfg_tuple):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--profile", choices=["atd", "default"], default="atd")
+    ap.add_argument("--profile", choices=["atd", "default", "none"], default="atd",
+                    help="corruption applied to the DFL matches; none = clean tracking")
+    ap.add_argument("--out", default=str(MODELS), help="where to write the model and reports")
     ap.add_argument("--drop", nargs="*", default=[])
     ap.add_argument("--rounds", type=int, default=N_ROUNDS)
     args = ap.parse_args()
-    profile = (DegradeProfile.from_json(MODELS / "atd_profile.json") if args.profile == "atd"
-               else DEFAULT_PROFILE)
+    profile = {"atd": lambda: DegradeProfile.from_json(MODELS / "atd_profile.json"),
+               "default": lambda: DEFAULT_PROFILE, "none": lambda: None}[args.profile]()
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
     flags = load_flags()
     t0 = time.time()
     matches = [prepare(mid, i, profile, flags, set(args.drop)) for i, mid in enumerate(DFL_MATCH_IDS)]
@@ -109,7 +114,7 @@ def main() -> int:
     table.sort(key=lambda r: (-r[0], -r[1], r[2]))
     best_spell, best_macro, (pmin, dmin, pen) = table[0]
     cfg = DecoderConfig(min_len=(pmin, pmin, dmin), switch_penalty=pen)
-    save_decoder(cfg)
+    save_decoder(cfg, out / "decoder.json")
     print(f"decoder: {cfg} mean spell_f1 {best_spell:.4f} macro_f1 {best_macro:.4f} "
           f"({time.time() - t0:.0f} s)", flush=True)
 
@@ -143,11 +148,11 @@ def main() -> int:
 
     Xall, yall = training_rows(matches)
     booster = train(Xall, yall, names, n_rounds=args.rounds)
-    save(booster, MODELS / "possession_lgb.txt")
+    save(booster, out / "possession_lgb.txt")
     gain = booster.feature_importance(importance_type="gain")
     order = np.argsort(-gain)[:20]
     report["top20_gain"] = [[names[j], float(gain[j])] for j in order]
-    (MODELS / "cv_report.json").write_text(json.dumps(report, indent=1))
+    (out / "cv_report.json").write_text(json.dumps(report, indent=1))
     print(json.dumps({"mean": mean, "decoder": report["decoder"],
                       "top20": [n for n, _ in report["top20_gain"]]}, indent=1))
     print(f"done ({time.time() - t0:.0f} s)")

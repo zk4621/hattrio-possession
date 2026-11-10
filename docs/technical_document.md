@@ -43,12 +43,20 @@ players.
    seven Bundesliga matches whose tracking was corrupted to look like the provided one (section 3).
    Home/away symmetry is encouraged (not guaranteed) by training on every match in both orientations (teams and
    labels swapped).
-4. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
+4. **Change model.** A second LightGBM model scores every frame for "the label changes within
+   2 frames of here". Besides the frame model's features it reads features that react on the very
+   frame something happens: the ball turning or speeding up over 3 frames, the nearest player
+   switching team, distances to the ball jumping, the ball crossing a line, the ball appearing or
+   vanishing. Its strongest inputs are the ball's acceleration, the players' mean speed jumping and
+   the ball turning.
+5. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
    log-probabilities (`round(1000·log p)`, so the result is bit-for-bit reproducible): it finds the
-   labelling that maximises the summed scores minus a penalty per switch, with every possession at
-   least `min_len` frames long. Tuned on the training matches: possessions and dead-ball
-   stretches ≥ 50 frames (2 s), no extra switch penalty (the minimum lengths do the work).
-5. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
+   labelling that maximises the summed scores minus a cost per switch, with every run at least
+   `min_len` frames long. The cost of a switch on frame t is 2,000 + 1,000 × (−logit of the change
+   model on t), at least 0: cheap where the change model expects a change, dear elsewhere. Tuned
+   on the training matches: possessions ≥ 12 frames (0.5 s), dead-ball stretches ≥ 75 frames
+   (3 s), change-model weight 1.
+6. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
    forced to `D` (the second half's graded window opens before its kick-off).
 
 **Why this rather than something else.**
@@ -58,8 +66,11 @@ players.
   the 223 weak signals that matter inside blackouts.
 - *LightGBM rather than a neural sequence model*: deterministic, fast on a CPU, tolerant of
   missing values, and the long windows give it the temporal context a sequence model would.
-- *A segment decoder rather than frame smoothing*: it outputs possessions directly, and its two
+- *A segment decoder rather than frame smoothing*: it outputs possessions directly, and its
   parameters are tuned on the metric itself (`spellF1`), on the training matches.
+- *A separate model for where a change happens*: the metric rewards boundaries within a few
+  frames, and the frame model, reading windows of up to 20 s, smears them; the change model reads
+  what happens on the frame itself.
 - *Smart Tagging as model input, learned on other matches*: the DFL matches have no Smart
   Tagging, so we built Smart-Tagging-like tags for them (section 3) and let the model learn how
   far to trust a tag, instead of writing rules on top of the tags whose effect nobody could
@@ -163,12 +174,12 @@ pass/fail correctness check with a threshold fixed in advance (section 6).
   strongest dead-ball cues the model learned are the ball outside the pitch when last seen and
   players standing still.
 - **Loose and contested balls** follow the DFL tracking's possession flag in training. The
-  decoder will not create a possession shorter than 2 s, so a touch shorter than that stays with
-  the team that had the ball; the minimum was chosen on the DFL matches.
+  decoder will not create a possession shorter than 0.5 s, and creates a short one only where the
+  change model sees a change; the minimum was chosen on the DFL matches.
 - **Blackouts.** No label is ever left open: the model reads possession from team shape and
   movement and from who had the ball before and after the blackout; the decoder keeps a
   possession through a blackout unless the evidence for a change outweighs that for staying.
-- **Restarts** split possessions: a dead-ball stretch of at least 2 s separates two possessions,
+- **Restarts** split possessions: a dead-ball stretch of at least 3 s separates two possessions,
   even of the same team.
 - **Smart Tagging** enters as evidence, not as a rule: from the simulated tags the model learned
   how often a tag's team really has the ball, and when play resumes around a set-piece tag.
@@ -183,7 +194,7 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 ```
 
 With the data bundle in `data/` (or `MTAH_DATA_DIR`) this regenerates `outputs/HatTrio.csv`
-exactly (SHA-256 `19771005d42e5cc6c687d97bcca6cbd22d35a6d77379cc913b17775f97287532`; checked by
+exactly (SHA-256 `a23e1669d7ed2c857d0f130a9961f67fd8926268031fcd12d3ca878662bd58bb`; checked by
 running it twice). Retraining from scratch, including the DFL download, is described in the
 README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed.
 
@@ -194,37 +205,40 @@ scorer):
 
 | match | baseline `spellF1` | rules `spellF1` | model `spellF1` | model `macroF1` |
 |---|---|---|---|---|
-| J03WMX | 0.199 | 0.244 | 0.509 | 0.895 |
-| J03WN1 | 0.182 | 0.230 | 0.567 | 0.894 |
-| J03WOH | 0.229 | 0.247 | 0.630 | 0.912 |
-| J03WOY | 0.192 | 0.227 | 0.561 | 0.889 |
-| J03WPY | 0.209 | 0.247 | 0.597 | 0.909 |
-| J03WQQ | 0.257 | 0.233 | 0.645 | 0.916 |
-| J03WR9 | 0.183 | 0.256 | 0.602 | 0.911 |
-| **mean** | **0.207** | **0.241** | **0.587** | **0.904** |
+| J03WMX | 0.199 | 0.244 | 0.520 | 0.896 |
+| J03WN1 | 0.182 | 0.230 | 0.572 | 0.896 |
+| J03WOH | 0.229 | 0.247 | 0.619 | 0.914 |
+| J03WOY | 0.192 | 0.227 | 0.578 | 0.891 |
+| J03WPY | 0.209 | 0.247 | 0.612 | 0.913 |
+| J03WQQ | 0.257 | 0.233 | 0.637 | 0.916 |
+| J03WR9 | 0.183 | 0.256 | 0.618 | 0.914 |
+| **mean** | **0.207** | **0.241** | **0.594** | **0.906** |
 
-What Smart Tagging added, on the same matches:
+What each step added, on the same matches (each adopted only if the mean rose and at least 5 of
+the 7 matches improved):
 
 | model | mean `spellF1` | matches improved over the line above |
 |---|---|---|
 | tracking only | 0.572 | – |
 | + set-piece tags | 0.577 | 6 of 7 |
-| + phase tags (submitted) | 0.587 | 5 of 7 |
+| + phase tags | 0.587 | 5 of 7 |
+| + change model (submitted) | 0.594 | 5 of 7 |
 
 Frame accuracy of the model is 88.9 % inside simulated blackouts (87.7 % without tags) and
-94.2 % where the ball is visible. The model predicts 274–321 possessions per match against
+94.4 % where the ball is visible. The model predicts 279–339 possessions per match against
 370–511 true ones: most of the missing ones are very short.
 
-**On the provided match** (no labels, so no score): 355 possessions, mean 11.3 s; graded frames
+**On the provided match** (no labels, so no score): 364 possessions, mean 11.0 s; graded frames
 37 % `H`, 26 % `A`, 37 % `D`. On the five public minutes (a correctness check only; the ball is
-visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.632, home/away
-correct on 95.5 % of live frames, 14 predicted possessions against 17 true ones. Without Smart
-Tagging it was 0.619; the difference is smaller than one possession (about 0.06 there), and by
-the rules the public window does not choose between versions.
+visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.645, home/away
+correct on 95.5 % of live frames, 14 predicted possessions against 17 true ones. With tracking only
+it was 0.619; differences of a possession or less (about 0.06 there) are noise, and by the rules
+the public window does not choose between versions.
 
 **Blackout consistency without labels.** We added simulated blackouts where the ball is visible
 on the real match and compared the two predictions: on the newly blacked-out frames they agree on
-79.7 % of frames (77.6 % without tags), and the possessions match with `spellF1` 0.84 (0.79).
+79.1 % of frames (77.6 % with tracking only), and the possessions match with `spellF1` 0.82
+(0.79).
 Real blackouts therefore cost something like a fifth of the frame decisions they cover.
 
 **Domain check.** Feature distributions on the real match and on the corrupted DFL matches were
@@ -247,18 +261,21 @@ example 1.62 against 1.64 phase tags active at once).
   4.8 %. Three stoppages of 14–20 s are mostly labelled as possession there. On the whole match
   our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
-- *A large gap between in-sample and out-of-fold scores* (0.82 vs 0.59 on DFL) says the model
+- *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL) says the model
   memorises match specifics; stronger regularisation or more matches would help.
 - Turnovers deep inside a long blackout are guessed from team movement only.
-- *Ceilings measured on the DFL matches.* With the ball never lost, the same method scores 0.69
-  (0.59 with blackouts), so the blackouts cost about 0.10. With perfect knowledge of every frame,
-  our 2 s minimum possession length alone caps the score at 0.87; the true labels made 0.2 s
-  late score 0.93, 0.5 s late 0.78 and 1 s late 0.56. Scores near 0.9 would need almost every
+- *Ceilings measured on the DFL matches* (before the change model). With the ball never lost,
+  the method scored 0.69 (0.59 with blackouts), so the blackouts cost about 0.10. With perfect
+  knowledge of every frame, a 2 s minimum possession length alone caps the score at 0.87 and a
+  0.5 s minimum at 0.97; the true labels made 0.2 s late score 0.93, 0.5 s late 0.78 and 1 s late
+  0.56. Scores near 0.9 would need almost every
   possession, including sub-second ones, with boundaries right to a few frames.
 - *A decoder that allows short possessions only where the ball is seen* (down to 6 frames, with
   2 s kept inside blackouts) moved the cross-validated score from 0.587 to 0.588 and was better on
-  only 3 of 7 matches, so it was not adopted (`scripts/train.py --seen-grid`). The short
-  possessions are lost before the decoder: the frame model does not single them out.
+  only 3 of 7 matches, so it was not adopted (`scripts/train.py --seen-grid`). The frame model does
+  not single short possessions out; the change model, which does look at single frames, did help.
+- The change-model weight chosen (1) is the largest in the tuning grid; a larger one was not
+  tried.
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on

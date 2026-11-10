@@ -42,3 +42,17 @@ def test_proba_fn_selects_columns_by_name():
     assert np.array_equal(fn(extra, names[::-1] + ["unused"]), predict_proba(booster, X))
     with pytest.raises(ValueError):
         fn(X[:, :4], names[:4])
+
+
+def test_change_model_learns_a_rare_event_and_selects_columns_by_name():
+    from possession.model import change_fn, train_change
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(20000, 4)).astype(np.float32)
+    y = (X[:, 2] > 2.0).astype(np.int8)                      # about 2 % positives
+    names = ["a", "b", "c", "d"]
+    booster = train_change(X, y, names, n_rounds=30)
+    fn = change_fn(booster)
+    p = fn(X[:, ::-1], names[::-1])
+    assert p.shape == (20000,) and ((p >= 0) & (p <= 1)).all()
+    assert p[y == 1].mean() > 0.5 > p[y == 0].mean()
+    assert np.array_equal(p, change_fn(train_change(X, y, names, n_rounds=30))(X[:, ::-1], names[::-1]))

@@ -18,6 +18,10 @@ class DecoderConfig:
     # seen. Where the ball is seen, a short possession can be told from noise; inside a blackout
     # it cannot. None: one minimum for all frames (min_len).
     min_len_seen: int | None = None
+    # Weight of the change model: a switch into a new run at frame s costs
+    # switch_penalty + round(1000 * change_weight * -logit(p_change[s])), at least 0.
+    # 0: the change model is not used and every switch costs switch_penalty.
+    change_weight: float = 0.0
 
 
 def quantize(proba: np.ndarray) -> np.ndarray:
@@ -43,11 +47,14 @@ def _minimums(T: int, cfg: DecoderConfig, seen: np.ndarray | None) -> list[list[
     return mins
 
 
-def decode(scores: np.ndarray, cfg: DecoderConfig, seen: np.ndarray | None = None) -> np.ndarray:
+def decode(scores: np.ndarray, cfg: DecoderConfig, seen: np.ndarray | None = None,
+           switch_cost: np.ndarray | None = None) -> np.ndarray:
     """Best labelling under the switch penalty with every run long enough.
 
     A run of state k that starts on frame s must be at least mins[k][s] long: min_len[k], or for
     H and A min_len_seen where the ball is seen on every frame of [s, s + min_len_seen).
+    A switch into a run that starts on frame s costs switch_cost[s] if given, else
+    switch_penalty.
     """
     s = np.asarray(scores, dtype=np.int64)
     T = len(s)
@@ -61,6 +68,8 @@ def decode(scores: np.ndarray, cfg: DecoderConfig, seen: np.ndarray | None = Non
         return fallback
 
     C = [np.concatenate(([0], np.cumsum(s[:, k]))).tolist() for k in range(3)]
+    cost = ([P] * T if switch_cost is None
+            else np.asarray(switch_cost, dtype=np.int64).tolist())
     col = [s[:, k].tolist() for k in range(3)]
     V = [[NEG] * T for _ in range(3)]
     BP = [bytearray(T) for _ in range(3)]   # 0 stay, 1..3 switch from j=val-1, 4 start
@@ -82,7 +91,7 @@ def decode(scores: np.ndarray, cfg: DecoderConfig, seen: np.ndarray | None = Non
                     if cand > best:
                         best, bp, run = cand, 4, m
                     continue
-                seg = Ck[t + 1] - Ck[start] - P
+                seg = Ck[t + 1] - Ck[start] - cost[start]
                 src = start - 1
                 for j in range(3):
                     if j == k:
@@ -117,9 +126,17 @@ def decode(scores: np.ndarray, cfg: DecoderConfig, seen: np.ndarray | None = Non
     return out
 
 
+def switch_costs(change_logit: np.ndarray, cfg: DecoderConfig) -> np.ndarray:
+    """Per-frame cost of starting a new run, from the change model's logits."""
+    lg = np.nan_to_num(np.asarray(change_logit, dtype=np.float64), nan=0.0)
+    c = cfg.switch_penalty + np.round(1000.0 * cfg.change_weight * -lg)
+    return np.maximum(c, 0).astype(np.int64)
+
+
 def decode_periods(proba: np.ndarray, period: np.ndarray, cfg: DecoderConfig,
                    live_from: dict[int, int] | None = None,
-                   seen: np.ndarray | None = None) -> np.ndarray:
+                   seen: np.ndarray | None = None,
+                   change_logit: np.ndarray | None = None) -> np.ndarray:
     proba = np.array(proba, dtype=np.float64)
     bad = ~np.isfinite(proba).all(axis=1)
     proba[bad] = 1.0 / 3.0
@@ -136,5 +153,7 @@ def decode_periods(proba: np.ndarray, period: np.ndarray, cfg: DecoderConfig,
         if live_from and p in live_from:
             n = max(0, min(int(live_from[p]) - a, z - a))
             sc[:n] = (-10 ** 6, -10 ** 6, 0)
-        out[a:z] = decode(sc, cfg, None if seen is None else np.asarray(seen)[a:z])
+        costs = (switch_costs(np.asarray(change_logit)[a:z], cfg)
+                 if change_logit is not None and cfg.change_weight else None)
+        out[a:z] = decode(sc, cfg, None if seen is None else np.asarray(seen)[a:z], costs)
     return out

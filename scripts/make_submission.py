@@ -32,17 +32,18 @@ def main() -> int:
         return 2
 
     if args.proba == "model":
-        from possession.model import load_decoder, load_proba_fn
+        from possession.model import load_change_fn, load_decoder, load_proba_fn
         proba_fn, cfg = load_proba_fn(), load_decoder()
+        change = load_change_fn(cfg)
     else:
-        proba_fn, cfg = rule_proba, DecoderConfig()
+        proba_fn, cfg, change = rule_proba, DecoderConfig(), None
     live_from = {p: max(start, tags[p]) for p, start, stop in ft.period_slices() if p in tags}
     for p, start, stop in ft.period_slices():
         if p not in tags:
             print(f"WARNING: no kick-off tag for half {p}; nothing forced to D", file=sys.stderr)
         else:
             print(f"half {p}: {live_from[p] - start} frames forced to D before the kick-off tag")
-    codes = predict_codes(ft, proba_fn, cfg, live_from)
+    codes = predict_codes(ft, proba_fn, cfg, live_from, change_fn=change)
 
     path = OUTPUTS / f"{args.team}.csv"
     write_submission(path, codes)
@@ -58,11 +59,11 @@ def main() -> int:
     print(f"possessions: {len(spells)}, mean duration {np.mean(dur):.1f} s")
     print(f"sha256: {hashlib.sha256(path.read_bytes()).hexdigest()}")
     if args.consistency:
-        consistency(ft, codes, proba_fn, cfg, live_from)
+        consistency(ft, codes, proba_fn, cfg, live_from, change)
     return 0 if problem is None else 1
 
 
-def consistency(ft, codes, proba_fn, cfg, live_from):
+def consistency(ft, codes, proba_fn, cfg, live_from, change=None):
     """Blackouts added where the ball is visible: how much does the prediction change?"""
     from possession.degrade import DegradeProfile, degrade
     from possession.paths import MODELS
@@ -71,7 +72,7 @@ def consistency(ft, codes, proba_fn, cfg, live_from):
     profile = DegradeProfile.from_json(MODELS / "atd_profile.json")
     deg = degrade(ft, profile, seed=0)
     new = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
-    codes2 = predict_codes(deg, proba_fn, cfg, live_from)
+    codes2 = predict_codes(deg, proba_fn, cfg, live_from, change_fn=change)
     s = score(codes, codes2)
     print(f"consistency: newly blacked-out frames {int(new.sum())}, "
           f"agreement there {float((codes2[new] == codes[new]).mean()):.4f}, "

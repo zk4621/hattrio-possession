@@ -18,6 +18,9 @@ LGB_PARAMS = {"objective": "multiclass", "num_class": 3, "learning_rate": 0.05, 
 N_ROUNDS = 400
 MODEL_PATH = MODELS / "possession_lgb.txt"
 DECODER_PATH = MODELS / "decoder.json"
+CHANGE_PATH = MODELS / "change_lgb.txt"
+CHANGE_PARAMS = {k: v for k, v in LGB_PARAMS.items() if k != "num_class"} | {"objective": "binary"}
+N_CHANGE_ROUNDS = 300
 
 
 def train(X: np.ndarray, y: np.ndarray, names: list[str], params: dict = LGB_PARAMS,
@@ -62,11 +65,40 @@ def load_proba_fn(path=MODEL_PATH):
     return proba_fn(load(path))
 
 
+def load_change_fn(cfg: DecoderConfig, path=CHANGE_PATH):
+    """The change model's scorer when the decoder uses it, else None."""
+    return change_fn(load(path)) if cfg.change_weight else None
+
+
+def train_change(X: np.ndarray, y: np.ndarray, names: list[str],
+                 n_rounds: int = N_CHANGE_ROUNDS) -> lgb.Booster:
+    ds = lgb.Dataset(np.asarray(X, dtype=np.float32), label=np.asarray(y, dtype=np.int32),
+                     feature_name=list(names), free_raw_data=True)
+    return lgb.train(dict(CHANGE_PARAMS), ds, num_boost_round=n_rounds)
+
+
+def change_fn(booster: lgb.Booster) -> Callable[[np.ndarray, list[str]], np.ndarray]:
+    """p(change near this frame) from the given columns, picked by name."""
+    wanted = booster.feature_name()
+
+    def fn(F: np.ndarray, names: list[str]) -> np.ndarray:
+        index = {n: i for i, n in enumerate(names)}
+        missing = [n for n in wanted if n not in index]
+        if missing:
+            raise ValueError(f"features missing for the change model: {missing[:5]}")
+        X = np.asarray(F[:, [index[n] for n in wanted]], dtype=np.float32)
+        return np.asarray(booster.predict(X, num_threads=LGB_PARAMS["num_threads"]),
+                          dtype=np.float64)
+
+    return fn
+
+
 def save_decoder(cfg: DecoderConfig, path=DECODER_PATH) -> None:
     Path(path).parent.mkdir(parents=True, exist_ok=True)
     Path(path).write_text(json.dumps({"min_len": list(cfg.min_len),
                                       "switch_penalty": cfg.switch_penalty,
-                                      "min_len_seen": cfg.min_len_seen}, indent=1))
+                                      "min_len_seen": cfg.min_len_seen,
+                                      "change_weight": cfg.change_weight}, indent=1))
 
 
 def load_decoder(path=DECODER_PATH) -> DecoderConfig:
@@ -74,4 +106,5 @@ def load_decoder(path=DECODER_PATH) -> DecoderConfig:
     seen = d.get("min_len_seen")
     return DecoderConfig(min_len=tuple(int(v) for v in d["min_len"]),
                          switch_penalty=int(d["switch_penalty"]),
-                         min_len_seen=None if seen is None else int(seen))
+                         min_len_seen=None if seen is None else int(seen),
+                         change_weight=float(d.get("change_weight", 0.0)))

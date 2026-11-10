@@ -153,3 +153,54 @@ def test_decode_periods_passes_seen_through():
     cfg = DecoderConfig(min_len=(50, 50, 50), switch_penalty=0, min_len_seen=6)
     out = decode_periods(proba, period, cfg, seen=np.ones(230, bool))
     assert out[10:220].tolist() == labels.tolist() and (out[:10] == X).all()
+
+
+def brute_force_best_with_costs(s, mins, costs):
+    best = None
+    for y in itertools.product(range(3), repeat=len(s)):
+        y = np.array(y)
+        if not valid_per_start(y, mins):
+            continue
+        sw = np.flatnonzero(np.diff(y) != 0) + 1
+        v = int(s[np.arange(len(y)), y].sum()) - int(costs[sw].sum())
+        best = v if best is None else max(best, v)
+    return best
+
+
+def test_frame_switch_costs_match_brute_force_optimum():
+    rng = np.random.default_rng(5)
+    for _ in range(25):
+        T = 9
+        s = rng.integers(-1000, 0, size=(T, 3), dtype=np.int32)
+        costs = rng.integers(0, 800, size=T)
+        cfg = DecoderConfig(min_len=(2, 2, 2), switch_penalty=0)
+        out = decode(s, cfg, switch_cost=costs)
+        mins = [np.full(T, 2)] * 3
+        assert valid_per_start(out, mins)
+        sw = np.flatnonzero(np.diff(out) != 0) + 1
+        v = int(s[np.arange(T), out].sum()) - int(costs[sw].sum())
+        assert v == brute_force_best_with_costs(s, mins, costs)
+
+
+def test_a_cheap_switch_frame_pulls_the_boundary():
+    labels = np.array([H] * 103 + [A] * 97)
+    s = scores_for(labels, strength=200)
+    costs = np.full(200, 5000)
+    costs[100] = 0                                     # the change model expects the change here
+    cfg = DecoderConfig(min_len=(25, 25, 25), switch_penalty=0)
+    out = decode(s, cfg, switch_cost=costs)
+    assert int(np.flatnonzero(np.diff(out))[0]) + 1 == 100
+
+
+def test_decode_periods_turns_change_logits_into_switch_costs():
+    period = np.array([0] * 10 + [1] * 200 + [0] * 10)
+    labels = np.array([H] * 103 + [A] * 97)
+    proba = np.full((220, 3), 0.1)
+    proba[np.arange(10, 210), labels] = 0.8
+    logit = np.full(220, -8.0)
+    logit[110] = 4.0                                   # frame 110 = row 100 of the period
+    cfg = DecoderConfig(min_len=(25, 25, 25), switch_penalty=0, change_weight=1.0)
+    out = decode_periods(proba, period, cfg, change_logit=logit)
+    assert int(np.flatnonzero(np.diff(out[10:210]))[0]) + 1 == 100
+    plain = decode_periods(proba, period, DecoderConfig(min_len=(25, 25, 25), switch_penalty=0))
+    assert int(np.flatnonzero(np.diff(plain[10:210]))[0]) + 1 == 103

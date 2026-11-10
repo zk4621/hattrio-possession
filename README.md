@@ -40,7 +40,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-19771005d42e5cc6c687d97bcca6cbd22d35a6d77379cc913b17775f97287532
+a23e1669d7ed2c857d0f130a9961f67fd8926268031fcd12d3ca878662bd58bb
 ```
 
 Check the format with the organisers' validator:
@@ -69,16 +69,17 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 uv run python scripts/measure_tag_profile.py --pred outputs/HatTrio.csv
 ```
 
-then with both set to `true`:
+then with both set to `true`, this time with the change model:
 
 ```bash
-uv run python scripts/train.py --profile atd
+uv run python scripts/train.py --profile atd --change
 uv run python scripts/compare_domains.py       # feature distributions, provided vs DFL
 ```
 
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
-profile; `models/cv_report.json` holds the cross-validation results.
+profile; `models/change_lgb.txt` is the change model; `models/cv_report.json` holds the
+cross-validation results.
 
 Reference evaluations on the DFL matches:
 

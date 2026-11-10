@@ -274,8 +274,10 @@ example 1.62 against 1.64 phase tags active at once).
   2 s kept inside blackouts) moved the cross-validated score from 0.587 to 0.588 and was better on
   only 3 of 7 matches, so it was not adopted (`scripts/train.py --seen-grid`). The frame model does
   not single short possessions out; the change model, which does look at single frames, did help.
-- The change-model weight chosen (1) is the largest in the tuning grid; a larger one was not
-  tried.
+- *Larger change-model weights* (up to 3, with possessions down to 6 frames) moved the
+  cross-validated score from 0.5935 to 0.5949 and were better on only 3 of 7 matches, so they were
+  not adopted (`scripts/train.py --change --wide-change-grid`). The best settings all lie within
+  0.0004 of each other: the decoder is on a plateau.
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on

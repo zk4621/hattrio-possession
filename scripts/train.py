@@ -35,6 +35,10 @@ SEEN_GRID = ([6, 12, 25, 38, 50], [25, 38, 50, 75], [25, 50, 75], [0, 2000, 5000
 # --change: a second model scores each frame for "the label changes here"; the decoder's switch
 # cost then varies per frame. Grid: possession minimum, dead-ball minimum, base penalty, weight.
 CHANGE_GRID = ([12, 25, 50], [25, 50, 75], [0, 2000, 5000], [0.0, 0.25, 0.5, 1.0])
+# --wide-change-grid: weights up to 3 and possessions down to 6 frames. Tried on 2026-11-10:
+# mean CV spell_f1 0.5935 -> 0.5949 (weight 3), better on 3 of 7 matches; not adopted.
+WIDE_CHANGE_GRID = ([6, 12, 25, 50], [25, 50, 75], [0, 2000, 5000],
+                    [0.0, 0.25, 0.5, 1.0, 1.5, 2.0, 3.0])
 SUBSAMPLE = 2
 
 
@@ -112,6 +116,10 @@ def main() -> int:
                     help="also tune a shorter possession minimum where the ball is seen")
     ap.add_argument("--change", action="store_true",
                     help="train the change model and tune its weight in the decoder")
+    ap.add_argument("--wide-change-grid", action="store_true",
+                    help="with --change: also try larger change-model weights")
+    ap.add_argument("--save-oof", action="store_true",
+                    help="write the out-of-fold predictions to <out>/oof.npz")
     args = ap.parse_args()
     profile = {"atd": lambda: DegradeProfile.from_json(MODELS / "atd_profile.json"),
                "default": lambda: DEFAULT_PROFILE, "none": lambda: None}[args.profile]()
@@ -144,11 +152,16 @@ def main() -> int:
             del Xc, yc, cb
         print(f"fold {held['id']} done ({time.time() - t0:.0f} s)", flush=True)
 
+    if args.save_oof:
+        np.savez_compressed(out / "oof.npz", **{f"proba_{k}": v for k, v in oof.items()},
+                            **{f"logit_{k}": v for k, v in oof_logit.items() if v is not None})
+
     # decoder grid on out-of-fold probabilities
     data = [(oof[m["id"]], m["ft"].period, m["y"], m["seen"], oof_logit[m["id"]])
             for m in matches]
     if args.change:
-        grid = [(None,) + c for c in itertools.product(*CHANGE_GRID)]
+        grid = [(None,) + c for c in itertools.product(
+            *(WIDE_CHANGE_GRID if args.wide_change_grid else CHANGE_GRID))]
     elif args.seen_grid:
         grid = [c + (0.0,) for c in itertools.product(*SEEN_GRID)]
     else:

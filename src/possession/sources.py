@@ -54,21 +54,32 @@ def attach_sources(ft: FrameTable) -> FrameTable:
 TAG_SEED = 200
 
 
-def attach_dfl_sources(ft: FrameTable, y, match_id: str, index: int) -> FrameTable:
-    """Simulated counterparts of the adopted sources on a DFL match (before degradation)."""
+def attach_training_tags(ft: FrameTable, y, set_pieces, index: int) -> FrameTable:
+    """Simulated counterparts of the adopted sources on a training match (before degradation).
+
+    set_pieces: [(kind, row, team)] restarts of that match, from its own event data.
+    """
     flags = load_flags()
     if flags["proxy"]:
         from .proxy import simulate_proxy
         ft.proxy = simulate_proxy(ft, flags["proxy_stats"], seed=index)
     if flags["tags"] or flags["phases"]:
-        from .tagging import (dfl_phase_candidates, dfl_set_pieces, simulate_phase_tags,
-                              simulate_set_piece_tags)
+        from .tagging import dfl_phase_candidates, simulate_phase_tags, simulate_set_piece_tags
         profile = json.loads((MODELS / "tag_profile.json").read_text())
         ft.tags = []
         if flags["tags"]:
-            ft.tags += simulate_set_piece_tags(dfl_set_pieces(match_id, ft.period), profile,
-                                               seed=TAG_SEED + index)
+            ft.tags += simulate_set_piece_tags(set_pieces, profile, seed=TAG_SEED + index)
         if flags["phases"]:
             ft.tags += simulate_phase_tags(dfl_phase_candidates(ft, y), profile,
                                            seed=TAG_SEED + 50 + index)
     return ft
+
+
+def attach_dfl_sources(ft: FrameTable, y, match_id: str, index: int) -> FrameTable:
+    """attach_training_tags for a DFL match, its restarts read from the DFL event data."""
+    flags = load_flags()
+    set_pieces = []
+    if flags["tags"]:
+        from .tagging import dfl_set_pieces
+        set_pieces = dfl_set_pieces(match_id, ft.period)
+    return attach_training_tags(ft, y, set_pieces, index)

@@ -164,6 +164,27 @@ team kept the ball a second before and after it (41 entries per match instead of
 tagging has 72) and started every tag 2–4 s before its moment. Both would have taught the model
 to read the real tags wrongly; the submitted model uses the corrected simulation.
 
+**Other open matches, tried and not adopted.** We also trained on 23 more public matches:
+SkillCorner Open Data (20 A-League 2024/25 matches, broadcast tracking at 10 fps, MIT licence,
+https://github.com/SkillCorner/opendata; possession as SkillCorner names it on each frame, dead
+ball outside SkillCorner's phases of play) and the three Metrica Sports sample games
+(https://github.com/metrica-sports/sample-data; the provider of the match's tracking; labels
+derived by us from Metrica's events: a team has the ball from its pass, carry, recovery, shot,
+lost ball or set piece on, the ball is dead from a ball-out, a foul or a goal until the next set
+piece). Both already lose the ball on about 40 % of frames, so they were used without simulated
+blackouts; their possessions change 15-19 times per 5 minutes, against 26 in the DFL labels. The
+rule fixed before the run asked for three things; the first two held and the third did not:
+
+| condition | result |
+|---|---|
+| held-out SkillCorner and Metrica matches better than the DFL-only model | 0.378 -> 0.547 |
+| Metrica games better on at least 2 of 3 | 0.656 -> 0.688, 3 of 3 |
+| DFL out-of-fold mean at least 0.5885 | 0.594 -> 0.537 |
+
+The extra matches teach the model longer possessions, which the DFL labels do not have. They
+were not adopted (`scripts/train_multi.py` reruns the experiment; the same script on the DFL
+matches alone gives 0.5935, the submitted model's score, so the drop is not a code effect).
+
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
 pass/fail correctness check with a threshold fixed in advance (section 6).
@@ -250,6 +271,10 @@ example 1.62 against 1.64 phase tags active at once).
 
 **Limitations.**
 
+- *The closest estimate of the score on this match* is the submitted model's 0.656 on the three
+  Metrica sample games, which it never saw: same tracking provider, the ball missing on 32-41 % of
+  frames, possessions changing about as often as in the public five minutes. Their labels were
+  derived by us from Metrica's events, not from corrected tracking, so this is an estimate.
 - *The DFL score is not the score on this match.* The training labels are another provider's
   possession flag, the corruption is a model of the real tracking's defects, and the DFL tags are
   our model of Metrica's tagging; "players in the box" fires 97 times on this match and only 57

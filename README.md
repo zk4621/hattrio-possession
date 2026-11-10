@@ -81,6 +81,16 @@ proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart
 profile; `models/change_lgb.txt` is the change model; `models/cv_report.json` holds the
 cross-validation results.
 
+Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
+credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned
+into `external/` (the SkillCorner tracking files are Git LFS objects, 1.8 GB):
+
+```bash
+uv run python scripts/train_multi.py --out <scratch dir> --compare
+```
+
+It was not adopted; see the technical document.
+
 Reference evaluations on the DFL matches:
 
 ```bash

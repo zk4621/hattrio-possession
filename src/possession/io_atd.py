@@ -136,9 +136,9 @@ def kickoff_tag_frames() -> dict[int, int]:
     events = st.load(data_dir=str(data_dir()))
     out: dict[int, int] = {}
     for e in events:
-        tags = e.get("tags") or {}
-        if (str(e.get("code") or "").lower() == "set pieces"
-                and str(tags.get("Type") or "").lower() == "kick off (start)"
+        tags = {str(k).strip(): str(v or "").strip() for k, v in (e.get("tags") or {}).items()}
+        if (str(e.get("code") or "").strip().lower() == "set pieces"
+                and tags.get("Type", "").lower() == "kick off (start)"
                 and tags.get("Half") in HALF_LABELS):
             p = HALF_LABELS[tags["Half"]]
             out[p] = min(out.get(p, e["start_frame"]), e["start_frame"])

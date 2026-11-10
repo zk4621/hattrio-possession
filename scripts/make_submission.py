@@ -37,6 +37,11 @@ def main() -> int:
     else:
         proba_fn, cfg = rule_proba, DecoderConfig()
     live_from = {p: max(start, tags[p]) for p, start, stop in ft.period_slices() if p in tags}
+    for p, start, stop in ft.period_slices():
+        if p not in tags:
+            print(f"WARNING: no kick-off tag for half {p}; nothing forced to D", file=sys.stderr)
+        else:
+            print(f"half {p}: {live_from[p] - start} frames forced to D before the kick-off tag")
     codes = predict_codes(ft, proba_fn, cfg, live_from)
 
     path = OUTPUTS / f"{args.team}.csv"

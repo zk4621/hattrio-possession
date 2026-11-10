@@ -35,7 +35,7 @@ players.
    so a frame deep inside a blackout still sees how both teams moved before and after it.
 3. **Model.** LightGBM, three classes (`H`, `A`, `D`), deterministic CPU training, trained on
    seven Bundesliga matches whose tracking was corrupted to look like the provided one (section 3).
-   Home/away symmetry is enforced by training on every match in both orientations (teams and
+   Home/away symmetry is encouraged (not guaranteed) by training on every match in both orientations (teams and
    labels swapped).
 4. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
    log-probabilities (`round(1000·log p)`, so the result is bit-for-bit reproducible): it finds the

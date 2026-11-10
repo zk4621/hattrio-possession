@@ -40,8 +40,8 @@ players.
 4. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
    log-probabilities (`round(1000·log p)`, so the result is bit-for-bit reproducible): it finds the
    labelling that maximises the summed scores minus a penalty per switch, with every possession at
-   least `min_len` frames long. Tuned on the training matches: possessions ≥ 50 frames (2 s), dead
-   ball ≥ 75 frames (3 s), switch penalty 10,000 (= 10 nats).
+   least `min_len` frames long. Tuned on the training matches: possessions ≥ 38 frames (1.5 s),
+   dead ball ≥ 75 frames (3 s), no extra switch penalty (the minimum lengths do the work).
 5. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
    forced to `D` (the second half's graded window opens before its kick-off).
 
@@ -84,17 +84,19 @@ figshare, https://doi.org/10.6084/m9.figshare.28196177.v1, CC-BY 4.0. Seven Bund
 is `D` if the ball is dead, otherwise `H` or `A` from the possession flag — the same kind of
 mechanical derivation from tracking that the challenge describes for its ground truth.
 
-One adjustment, from the challenge's definition and decided before any comparison with this
-match: the DFL flag changes on *any* touch (25–37 % of its possessions last under 2 s, median
-mean possession 7.2 s), while the challenge counts a change only on *controlled* possession. An
-opponent spell shorter than 2 s that ends with the ball back with the previous team, or with a
-stoppage, is therefore given to the previous team (a touch, a deflection, a won duel without
-control). After it the median mean possession is 11.5 s. The 2 s comes from the challenge's own
-proxy ("a player keeps the ball for a few seconds"); it was not tuned on any ground truth.
+The DFL flag is used as it is. A first version gave short opponent spells (under 2 s, ending
+with the ball back with the previous team or with a stoppage) to the previous team, reading the
+challenge's "controlled possession" as "keeps the ball for a few seconds". We dropped that rule
+after checking what the labels mean on the public five minutes, which the rules allow for
+exactly this purpose: the public ground truth counts possessions of 0.8 s and 1.3 s, each between
+two possessions of the other team, and the rule would have merged five of its possessions into
+one. The challenge states that where a reading of the definition disagrees with the public ground
+truth, the ground truth is right. We decided before retraining to keep this change whatever it
+did to the public-window score (it moved from 0.621 to 0.619).
 
-**How much.** 1,002,644 frames in play (137,214–146,810 per match), 2,017 possessions after the
-adjustment; dead ball 41–52 % of frames. Training used every second frame of each match in both
-orientations.
+**How much.** 1,002,644 frames in play (137,214–146,810 per match), 3,061 possessions (mean
+duration 5.5–9.2 s per match); dead ball 41–52 % of frames. Training used every second frame of
+each match in both orientations.
 
 **Making the clean tracking look like the provided tracking.** From the provided tracking we
 measured, as aggregate numbers only: how often a blackout starts per visible frame (1/816 with the
@@ -103,7 +105,7 @@ each case (median 234 and 316 frames, up to 5,537), and how many players per tea
 in 10-second blocks (0 missing 65 % of the time, 1 missing 22 %, more otherwise). The same
 corruption is applied to each DFL match: long ball blackouts drawn from those distributions, and
 whole blocks of the players farthest from the ball removed, as a camera that follows play would
-lose them. A check afterwards: the published starter baseline scores 0.231 `spellF1` on the
+lose them. A check afterwards: the published starter baseline scores 0.207 `spellF1` on the
 corrupted DFL matches and 0.243 on the real match.
 
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
@@ -115,12 +117,13 @@ pass/fail correctness check with a threshold fixed in advance (section 6).
 - **Dead ball** is whatever the model calls dead: in training, the DFL "ball dead" status. The
   strongest dead-ball cues the model learned are the ball outside the pitch when last seen and
   players standing still.
-- **Loose and contested balls** stay with the last team that controlled it: the training labels
-  give short uncontrolled opponent touches (< 2 s, ball back with the previous team or out of
-  play) to the previous team, and the decoder will not create a possession shorter than 2 s.
+- **Loose and contested balls** follow the DFL tracking's possession flag in training. The
+  decoder will not create a possession shorter than 1.5 s, so a touch shorter than that stays
+  with the team that had the ball; the decoder's minimum was chosen on the DFL matches, where
+  predicting shorter possessions cost more in false possessions than it gained.
 - **Blackouts.** No label is ever left open: the model reads possession from team shape and
   movement and from who had the ball before and after the blackout; the decoder keeps a
-  possession through a blackout unless the evidence for a change outweighs a fixed penalty.
+  possession through a blackout unless the evidence for a change outweighs that for staying.
 - **Restarts** split possessions: a dead-ball stretch of at least 3 s separates two possessions,
   even of the same team.
 - **Before kick-off** of each half (from the Smart Tagging kick-off tag) every frame is `D`.
@@ -134,7 +137,7 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 ```
 
 With the data bundle in `data/` (or `MTAH_DATA_DIR`) this regenerates `outputs/HatTrio.csv`
-exactly (SHA-256 `4ac3049695a9e48e863420e5e9781d8e4eaa9d1e5a693f925dab77fb6b5a515a`; checked by
+exactly (SHA-256 `f7e6f5fe413a1732e756fd4ccda58d0533e9cff3d5ca703b615cde5f90bb9f82`; checked by
 running it twice). Retraining from scratch, including the DFL download, is described in the
 README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed.
 
@@ -145,26 +148,27 @@ scorer):
 
 | match | baseline `spellF1` | rules `spellF1` | model `spellF1` | model `macroF1` |
 |---|---|---|---|---|
-| J03WMX | 0.236 | 0.279 | 0.667 | 0.895 |
-| J03WN1 | 0.212 | 0.234 | 0.644 | 0.880 |
-| J03WOH | 0.239 | 0.234 | 0.703 | 0.907 |
-| J03WOY | 0.212 | 0.214 | 0.669 | 0.894 |
-| J03WPY | 0.250 | 0.246 | 0.714 | 0.913 |
-| J03WQQ | 0.269 | 0.221 | 0.696 | 0.911 |
-| J03WR9 | 0.201 | 0.256 | 0.685 | 0.910 |
-| **mean** | **0.231** | **0.241** | **0.683** | **0.901** |
+| J03WMX | 0.199 | 0.244 | 0.505 | 0.889 |
+| J03WN1 | 0.182 | 0.230 | 0.532 | 0.881 |
+| J03WOH | 0.229 | 0.247 | 0.603 | 0.903 |
+| J03WOY | 0.192 | 0.227 | 0.564 | 0.886 |
+| J03WPY | 0.209 | 0.247 | 0.586 | 0.909 |
+| J03WQQ | 0.257 | 0.233 | 0.623 | 0.910 |
+| J03WR9 | 0.183 | 0.256 | 0.586 | 0.905 |
+| **mean** | **0.207** | **0.241** | **0.572** | **0.898** |
 
-Frame accuracy of the model is 88.2 % inside simulated blackouts and 94.3 % where the ball is
-visible.
+Frame accuracy of the model is 87.7 % inside simulated blackouts and 94.1 % where the ball is
+visible. The model predicts 289–342 possessions per match against 370–511 true ones: it misses
+most possessions shorter than 1.5 s.
 
-**On the provided match** (no labels, so no score): 277 possessions, mean 14.5 s; graded frames
-37 % `H`, 26 % `A`, 37 % `D`. On the five public minutes (a correctness check only; the ball is
-visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.621, home/away
-correct on 94.6 % of live frames, 12 predicted possessions against 17 true ones.
+**On the provided match** (no labels, so no score): 396 possessions, mean 10.2 s; graded frames
+37 % `H`, 27 % `A`, 37 % `D`. On the five public minutes (a correctness check only; the ball is
+visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.619, home/away
+correct on 95.4 % of live frames, 14 predicted possessions against 17 true ones.
 
 **Blackout consistency without labels.** We added simulated blackouts where the ball is visible
 on the real match and compared the two predictions: on the newly blacked-out frames they agree on
-79.5 % of frames, and the possessions match with `spellF1` 0.82. Real blackouts therefore cost
+77.6 % of frames, and the possessions match with `spellF1` 0.79. Real blackouts therefore cost
 something like a fifth of the frame decisions they cover.
 
 **Domain check.** Feature distributions on the real match and on the corrupted DFL matches were
@@ -176,12 +180,15 @@ share differs by more than 0.25, so no feature was dropped. Tracked players per 
 **Limitations.**
 
 - *The DFL score is not the score on this match.* The training labels are another provider's
-  possession flag, adjusted by a rule, and the corruption is a model of the real tracking's
-  defects. We expect the real score to be clearly lower than 0.68; the public window is too short
-  to say how much.
-- *The model under-segments* on the public window (12 possessions against 17): the 2 s minimum and
-  the switch penalty merge short possessions. Short real possessions are the main loss.
-- *A large gap between in-sample and out-of-fold scores* (0.98 vs 0.68 on DFL) says the model
+  possession flag, and the corruption is a model of the real tracking's defects. The public window
+  is too short to say how far the real score is from 0.57.
+- *Short possessions are missed.* The decoder never outputs a possession under 1.5 s; the public
+  window has two (0.8 s and 1.3 s), and DFL matches have many more.
+- *Stoppages are under-detected on the public window*: dead ball is 19.6 % of it, our output
+  4.8 %. Three stoppages of 14–20 s are mostly labelled as possession there. On the whole match
+  our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
+  labels.
+- *A large gap between in-sample and out-of-fold scores* (0.85 vs 0.57 on DFL) says the model
   memorises match specifics; stronger regularisation or more matches would help.
 - Turnovers deep inside a long blackout are guessed from team movement only.
 

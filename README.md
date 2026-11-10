@@ -40,7 +40,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-4ac3049695a9e48e863420e5e9781d8e4eaa9d1e5a693f925dab77fb6b5a515a
+f7e6f5fe413a1732e756fd4ccda58d0533e9cff3d5ca703b615cde5f90bb9f82
 ```
 
 Check the format with the organisers' validator:

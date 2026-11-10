@@ -12,12 +12,6 @@ from .paths import CACHE, EXTERNAL
 
 DFL_MATCH_IDS = ["J03WMX", "J03WN1", "J03WOH", "J03WOY", "J03WPY", "J03WQQ", "J03WR9"]
 HALFTIME_GAP = 250
-# The challenge counts a change of possession only on *controlled* possession: a touch, a
-# deflection or a won duel without control does not change it. DFL's flag flips on such touches,
-# so an opponent spell shorter than this that ends with the ball back with the previous team, or
-# with a stoppage, is given to the previous team. 2 s comes from the challenge's own proxy ("a
-# player keeps the ball for a few seconds"); it was not tuned on any ground truth.
-STICKY_FRAMES = 50
 SECTIONS = {"firstHalf": 1, "secondHalf": 2}
 
 
@@ -115,26 +109,6 @@ def load_dfl(meta_path, positions_path) -> tuple[FrameTable, np.ndarray]:
     return ft, y
 
 
-def controlled_labels(y: np.ndarray, min_frames: int = STICKY_FRAMES) -> np.ndarray:
-    """Absorb short uncontrolled opponent spells into the previous team's possession."""
-    y = np.asarray(y, dtype=np.int8).copy()
-    while True:
-        breaks = np.flatnonzero(y[1:] != y[:-1]) + 1
-        bounds = np.concatenate(([0], breaks, [len(y)]))
-        segs = [(int(a), int(b), int(y[a])) for a, b in zip(bounds[:-1], bounds[1:])]
-        changed = False
-        for i in range(1, len(segs) - 1):
-            a, b, k = segs[i]
-            prev, nxt = segs[i - 1][2], segs[i + 1][2]
-            if (k in (H, A) and b - a < min_frames and prev in (H, A) and prev != k
-                    and nxt in (prev, D)):
-                y[a:b] = prev
-                changed = True
-                break
-        if not changed:
-            return y
-
-
 def _find(pattern: str) -> Path:
     hits = sorted((EXTERNAL / "dfl").glob(pattern))
     if not hits:
@@ -143,13 +117,8 @@ def _find(pattern: str) -> Path:
     return hits[0]
 
 
-def load_dfl_match(match_id: str, raw: bool = False) -> tuple[FrameTable, np.ndarray]:
-    """The match and its labels; `controlled_labels` applied unless raw=True."""
-    ft, y = _load_dfl_match(match_id)
-    return ft, (y if raw else controlled_labels(y))
-
-
-def _load_dfl_match(match_id: str) -> tuple[FrameTable, np.ndarray]:
+def load_dfl_match(match_id: str) -> tuple[FrameTable, np.ndarray]:
+    """The match and its labels, the DFL possession flag used as it is."""
     cache = CACHE / f"dfl_{match_id}.npz"
     if cache.exists():
         z = np.load(cache)

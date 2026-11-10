@@ -1,8 +1,8 @@
 {
  "min_len": [
-  50,
-  50,
+  38,
+  38,
   75
  ],
- "switch_penalty": 10000
+ "switch_penalty": 0
 }

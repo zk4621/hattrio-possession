@@ -55,16 +55,23 @@ def test_load_dfl_maps_labels_units_and_gap(tmp_path):
     assert np.isnan(ft.ball[3]).all()
 
 
-def test_controlled_labels_absorb_short_touches():
-    from possession.io_dfl import controlled_labels
-    y = np.array([X] + [H] * 100 + [A] * 10 + [H] * 100 + [A] * 10 + [D] * 30
-                 + [A] * 100 + [H] * 60 + [A] * 40 + [X], dtype=np.int8)
-    out = controlled_labels(y, min_frames=50)
-    # short A between H and H, and short A before a stoppage, become H
-    assert out[1:221].tolist() == [H] * 220
-    assert out[221:251].tolist() == [D] * 30
-    # a long H spell, and a spell that is not followed by the previous team or D, stay
-    assert out[251:351].tolist() == [A] * 100
-    assert out[351:411].tolist() == [H] * 60
-    assert out[411:451].tolist() == [A] * 40
-    assert out[0] == X and out[-1] == X
+def test_load_dfl_match_keeps_short_spells(tmp_path, monkeypatch):
+    """The challenge's public ground truth counts possessions of 0.8 s and 1.3 s, so the DFL
+    possession flag is used as it is: a one-frame opponent spell stays a possession."""
+    import possession.io_dfl as io
+
+    flags = [(1, 1), (1, 1), (2, 1), (1, 1), (1, 1)]
+    rows = "".join(f'<Frame N="{10000 + i}" X="1.0" Y="2.0" S="10.0" BallPossession="{p}" '
+                   f'BallStatus="{s}"/>' for i, (p, s) in enumerate(flags))
+    ball = f'<FrameSet GameSection="firstHalf" TeamId="BALL" PersonId="B1">{rows}</FrameSet>'
+    pos = ('<?xml version="1.0" encoding="utf-8"?><PutDataRequest><Positions>'
+           f'{ball}</Positions></PutDataRequest>')
+    ext = tmp_path / "external"
+    (ext / "dfl").mkdir(parents=True)
+    (ext / "dfl" / "DFL_02_01_matchinformation_DFL-COM-000001_DFL-MAT-TEST01.xml").write_text(META)
+    (ext / "dfl" / "DFL_04_03_positions_raw_observed_DFL-COM-000001_DFL-MAT-TEST01.xml"
+     ).write_text(pos)
+    monkeypatch.setattr(io, "EXTERNAL", ext)
+    monkeypatch.setattr(io, "CACHE", tmp_path / "cache")
+    _, y = io.load_dfl_match("TEST01")
+    assert y.tolist() == [H, H, A, H, H]

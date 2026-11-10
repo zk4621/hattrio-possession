@@ -15,6 +15,8 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--team", required=True)
     ap.add_argument("--proba", choices=["rules", "model"], default="model")
+    ap.add_argument("--consistency", action="store_true",
+                    help="also predict with extra simulated blackouts and compare (aggregates)")
     args = ap.parse_args()
 
     from possession.io_atd import kickoff_tag_frames, load_competition
@@ -50,7 +52,25 @@ def main() -> int:
     print(f"graded label counts: {counts}")
     print(f"possessions: {len(spells)}, mean duration {np.mean(dur):.1f} s")
     print(f"sha256: {hashlib.sha256(path.read_bytes()).hexdigest()}")
+    if args.consistency:
+        consistency(ft, codes, proba_fn, cfg, live_from)
     return 0 if problem is None else 1
+
+
+def consistency(ft, codes, proba_fn, cfg, live_from):
+    """Blackouts added where the ball is visible: how much does the prediction change?"""
+    from possession.degrade import DegradeProfile, degrade
+    from possession.paths import MODELS
+    from possession.pipeline import predict_codes
+    from possession.scoring import score
+    profile = DegradeProfile.from_json(MODELS / "atd_profile.json")
+    deg = degrade(ft, profile, seed=0)
+    new = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
+    codes2 = predict_codes(deg, proba_fn, cfg, live_from)
+    s = score(codes, codes2)
+    print(f"consistency: newly blacked-out frames {int(new.sum())}, "
+          f"agreement there {float((codes2[new] == codes[new]).mean()):.4f}, "
+          f"spell_f1 of degraded vs normal prediction {s['spell_f1']:.4f}")
 
 
 if __name__ == "__main__":

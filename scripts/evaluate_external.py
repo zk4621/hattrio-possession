@@ -27,7 +27,11 @@ def main() -> int:
     ap.add_argument("--proba", choices=["baseline", "rules", "model"], required=True)
     ap.add_argument("--degrade", choices=["none", "default", "atd"], default="none")
     ap.add_argument("--matches", nargs="*", default=DFL_MATCH_IDS)
+    ap.add_argument("--consistency", action="store_true",
+                    help="degraded prediction against clean-ball prediction")
     args = ap.parse_args()
+    if args.consistency:
+        return consistency(args)
 
     profile = get_profile(args.degrade)
     if args.proba == "model":
@@ -56,6 +60,37 @@ def main() -> int:
     OUTPUTS.mkdir(parents=True, exist_ok=True)
     out = OUTPUTS / f"external_{args.proba}_{args.degrade}.json"
     out.write_text(json.dumps({"matches": rows, "mean": mean}, indent=2))
+    return 0
+
+
+def consistency(args) -> int:
+    from possession.degrade import degrade
+    from possession.model import load_decoder, load_proba_fn
+    profile = get_profile("atd" if args.degrade == "none" else args.degrade)
+    if args.proba == "model":
+        proba_fn, cfg = load_proba_fn(), load_decoder()
+    else:
+        proba_fn, cfg = rule_proba, DecoderConfig()
+    rows = {}
+    print("match   agree_new  spell(deg vs clean)  spell_true_clean  spell_true_deg")
+    for mid in args.matches:
+        ft, y = load_dfl_match(mid)
+        deg = degrade(ft, profile, seed=DFL_MATCH_IDS.index(mid))
+        new = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
+        clean = predict_codes(ft, proba_fn, cfg)
+        dcodes = predict_codes(deg, proba_fn, cfg)
+        r = {"agree_new": float((clean[new] == dcodes[new]).mean()),
+             "spell_deg_vs_clean": score(clean, dcodes)["spell_f1"],
+             "spell_true_clean": score(y, clean)["spell_f1"],
+             "spell_true_deg": score(y, dcodes)["spell_f1"]}
+        rows[mid] = r
+        print(f"{mid}  {r['agree_new']:9.4f}  {r['spell_deg_vs_clean']:19.4f}  "
+              f"{r['spell_true_clean']:16.4f}  {r['spell_true_deg']:14.4f}", flush=True)
+    mean = {k: float(np.mean([r[k] for r in rows.values()])) for k in next(iter(rows.values()))}
+    print("mean    " + "  ".join(f"{k}={v:.4f}" for k, v in mean.items()))
+    OUTPUTS.mkdir(parents=True, exist_ok=True)
+    (OUTPUTS / f"consistency_{args.proba}.json").write_text(
+        json.dumps({"matches": rows, "mean": mean}, indent=1))
     return 0
 
 

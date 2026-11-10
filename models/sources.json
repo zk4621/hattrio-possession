@@ -1,4 +1,6 @@
 {
  "camera_proxy": false,
- "broadcast_ball": false
+ "broadcast_ball": false,
+ "smart_tagging": true,
+ "smart_tagging_phases": true
 }

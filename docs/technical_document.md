@@ -20,7 +20,7 @@ players.
 
 1. **Common frame table.** Every tracking source (provided ATD, DFL) is loaded into one structure:
    metres, origin at the pitch centre, players as two unordered sets (no identities), ball or NaN.
-2. **Features (195 per frame).** Three families, computed per half, never across halves:
+2. **Features (223 per frame).** Four families, computed per half, never across halves:
    - *ball*: position, distance to the pitch boundary, speed, acceleration, nearest and
      second-nearest player of each team, players within 3 m (ball interpolated only over gaps of
      at most 12 frames);
@@ -29,7 +29,13 @@ players.
      than 2 m and closer than any opponent) and how long ago, where the ball was (inside or
      outside the pitch) when it was last and next seen;
    - *players only*: tracked players per team, team centroids and their velocity, spread,
-     length, width, defensive line, mean speeds, share of standing players.
+     length, width, defensive line, mean speeds, share of standing players;
+   - *Smart Tagging*: frames since and until the nearest set-piece tag (any, and per kind:
+     throw-in, corner, goal kick, free kick, kick-off) and the team it names; for the eight phase
+     codes that name the team in possession (build-up, progression, creating chances, attacking
+     transition, long ball, ball in final third, ball in the box, players in the box), the
+     team-signed number of active tags of each code, and the team and distance of the nearest
+     phase-tag start.
 
    Seventeen of these get nine window means each (centred ±0.5/2/10 s, past and future 1/5/20 s),
    so a frame deep inside a blackout still sees how both teams moved before and after it.
@@ -40,8 +46,8 @@ players.
 4. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
    log-probabilities (`round(1000·log p)`, so the result is bit-for-bit reproducible): it finds the
    labelling that maximises the summed scores minus a penalty per switch, with every possession at
-   least `min_len` frames long. Tuned on the training matches: possessions ≥ 38 frames (1.5 s),
-   dead ball ≥ 75 frames (3 s), no extra switch penalty (the minimum lengths do the work).
+   least `min_len` frames long. Tuned on the training matches: possessions ≥ 12 frames (0.5 s),
+   dead ball ≥ 25 frames (1 s), switch penalty 5,000 (= 5 nats).
 5. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
    forced to `D` (the second half's graded window opens before its kick-off).
 
@@ -49,11 +55,15 @@ players.
 
 - *Train on other matches rather than hand-tune thresholds*: the rules forbid labels from this
   match, so any threshold would have to be learned elsewhere anyway; a learned model can combine
-  the 195 weak signals that matter inside blackouts.
+  the 223 weak signals that matter inside blackouts.
 - *LightGBM rather than a neural sequence model*: deterministic, fast on a CPU, tolerant of
   missing values, and the long windows give it the temporal context a sequence model would.
 - *A segment decoder rather than frame smoothing*: it outputs possessions directly, and its two
   parameters are tuned on the metric itself (`spellF1`), on the training matches.
+- *Smart Tagging as model input, learned on other matches*: the DFL matches have no Smart
+  Tagging, so we built Smart-Tagging-like tags for them (section 3) and let the model learn how
+  far to trust a tag, instead of writing rules on top of the tags whose effect nobody could
+  measure on this match.
 - A rule-based probability source (nearest player, ball outside the pitch, players standing)
   feeding the same decoder was built as a reference and fallback. The learned model beat it by a
   wide margin (section 6).
@@ -63,14 +73,14 @@ players.
 | asset | use |
 |---|---|
 | tactical ATD (tracking) | the only input of the model |
-| Smart Tagging | only the "Kick Off (Start)" tag of each half (start of live play); nothing else |
+| Smart Tagging | **used.** The set-piece tags (59: 26 throw-ins, 12 corners, 10 goal kicks, 5 free kicks, 6 kick-offs) and the eight phase codes that name the team in possession (433 tags), as model input; the "Kick Off (Start)" tag of each half also marks the start of live play. Not used: the four "defending" codes (the same instances seen from the other team) and the 4 "GOALS" tags. Adopted in two steps, each under a rule fixed before the run: the mean cross-validated `spellF1` must rise and at least 5 of the 7 matches must improve (section 6). |
 | tactical homography | **measured, dropped.** The pitch point at the image centre as a coarse ball position: correlation with the ball's x 0.84, but median error 11.7 m in x and 16.1 m in y, lagging the ball by 37 frames. Rule fixed in advance: adopt only if correlation ≥ 0.8, median x error ≤ 10 m and x spread ≥ 5 m. Failed on the median error. |
 | broadcast ATD | **measured, dropped.** We aligned the broadcast timeline to the tactical one by matching player positions (389 of 400 sampled broadcast frames matched a tactical frame with median player error 0.27 m; two constant offsets, one per half; 58.8 % of broadcast frames mapped). Where the tactical ball is missing, the broadcast ball of the matching frame would fill it. Both balls agree well (median 0.76 m, 90th percentile 5.5 m), but the broadcast ball fills only **9.1 %** of the tactical blackout frames: when the tactical camera loses the ball, the broadcast usually shows a replay or a close-up. Rule fixed in advance: adopt only if it fills ≥ 10 %. Dropped. |
 | broadcast homography | not used |
 | videos (tactical, broadcast) | not used |
 
-Both extra sources were judged with thresholds written down before measuring, so the decision was
-not tuned against anything.
+Every extra source was judged with a rule written down before measuring, so no decision was tuned
+against anything.
 
 ## 3. Training data
 
@@ -108,6 +118,31 @@ whole blocks of the players farthest from the ball removed, as a camera that fol
 lose them. A check afterwards: the published starter baseline scores 0.207 `spellF1` on the
 corrupted DFL matches and 0.243 on the real match.
 
+**Simulated Smart Tagging on the DFL matches.** What the real tags look like was measured on the
+provided match as aggregates only: the count per code and set-piece kind, the share that names a
+team, the tag lengths (set pieces mostly exactly 35 s, "creating chances" exactly 30 s), and
+where the restart or the possession sits inside a tag. For the last, a prediction made without
+tags served as the reference: play resumes 3–6 s after a set-piece tag starts (3.3 s for
+kick-offs, which matches the published second-half kick-off); inside "attacking transition"
+tags the tagged team gets the ball 2–4 s after the start; inside the other phase tags the tagged
+team has the ball from the start and keeps it for 6–20 s depending on the code.
+
+- *Set-piece tags* on the DFL matches come from their event data (throw-ins, corners, goal kicks,
+  free kicks and kick-offs, with team and time), thinned to the share the real tagging contains
+  (all corners and kick-offs, about 59 % of throw-ins and goal kicks, 20 % of free kicks), started
+  before the restart by the measured offsets, and naming a team only where the real tags do
+  (never for throw-ins and kick-offs).
+- *Phase tags* on the DFL matches are moments found in the tracking and the possession labels
+  (a regain, the ball entering the opponent's third or box, a long ball of 30 m in 2 s, ...),
+  thinned to the real count, started 2–4 s before the moment, and given the wrong team in the
+  share by which the real tags disagree with the reference prediction more than the simulated
+  ones disagree with the truth (0–6 % for most codes, 17–18 % for "players in the box" and
+  "long ball").
+
+These choices were made by comparing the simulated tags with the real ones, never by the
+cross-validated score. A first, cleaner simulation scored higher (0.607) but would have taught
+the model to trust the tags more than the real ones deserve; we kept the more faithful one.
+
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
 pass/fail correctness check with a threshold fixed in advance (section 6).
@@ -118,14 +153,16 @@ pass/fail correctness check with a threshold fixed in advance (section 6).
   strongest dead-ball cues the model learned are the ball outside the pitch when last seen and
   players standing still.
 - **Loose and contested balls** follow the DFL tracking's possession flag in training. The
-  decoder will not create a possession shorter than 1.5 s, so a touch shorter than that stays
-  with the team that had the ball; the decoder's minimum was chosen on the DFL matches, where
-  predicting shorter possessions cost more in false possessions than it gained.
+  decoder will not create a possession shorter than 0.5 s and charges a fixed cost for every
+  change, so a touch whose evidence does not outweigh that cost stays with the team that had the
+  ball; both were chosen on the DFL matches.
 - **Blackouts.** No label is ever left open: the model reads possession from team shape and
   movement and from who had the ball before and after the blackout; the decoder keeps a
   possession through a blackout unless the evidence for a change outweighs that for staying.
-- **Restarts** split possessions: a dead-ball stretch of at least 3 s separates two possessions,
+- **Restarts** split possessions: a dead-ball stretch of at least 1 s separates two possessions,
   even of the same team.
+- **Smart Tagging** enters as evidence, not as a rule: from the simulated tags the model learned
+  how often a tag's team really has the ball, and when play resumes around a set-piece tag.
 - **Before kick-off** of each half (from the Smart Tagging kick-off tag) every frame is `D`.
 - Outside the two halves the output is `X`; inside them it is never `X`.
 
@@ -137,7 +174,7 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 ```
 
 With the data bundle in `data/` (or `MTAH_DATA_DIR`) this regenerates `outputs/HatTrio.csv`
-exactly (SHA-256 `f7e6f5fe413a1732e756fd4ccda58d0533e9cff3d5ca703b615cde5f90bb9f82`; checked by
+exactly (SHA-256 `2f4f40bd8dc60b14ea9b5e35b1005cb969f4267323ecfa3174519787f44b0d02`; checked by
 running it twice). Retraining from scratch, including the DFL download, is described in the
 README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed.
 
@@ -148,51 +185,63 @@ scorer):
 
 | match | baseline `spellF1` | rules `spellF1` | model `spellF1` | model `macroF1` |
 |---|---|---|---|---|
-| J03WMX | 0.199 | 0.244 | 0.505 | 0.889 |
-| J03WN1 | 0.182 | 0.230 | 0.532 | 0.881 |
-| J03WOH | 0.229 | 0.247 | 0.603 | 0.903 |
-| J03WOY | 0.192 | 0.227 | 0.564 | 0.886 |
-| J03WPY | 0.209 | 0.247 | 0.586 | 0.909 |
-| J03WQQ | 0.257 | 0.233 | 0.623 | 0.910 |
-| J03WR9 | 0.183 | 0.256 | 0.586 | 0.905 |
-| **mean** | **0.207** | **0.241** | **0.572** | **0.898** |
+| J03WMX | 0.199 | 0.244 | 0.524 | 0.903 |
+| J03WN1 | 0.182 | 0.230 | 0.580 | 0.895 |
+| J03WOH | 0.229 | 0.247 | 0.641 | 0.917 |
+| J03WOY | 0.192 | 0.227 | 0.569 | 0.897 |
+| J03WPY | 0.209 | 0.247 | 0.603 | 0.914 |
+| J03WQQ | 0.257 | 0.233 | 0.635 | 0.915 |
+| J03WR9 | 0.183 | 0.256 | 0.611 | 0.919 |
+| **mean** | **0.207** | **0.241** | **0.595** | **0.909** |
 
-Frame accuracy of the model is 87.7 % inside simulated blackouts and 94.1 % where the ball is
-visible. The model predicts 289–342 possessions per match against 370–511 true ones: it misses
-most possessions shorter than 1.5 s.
+What Smart Tagging added, on the same matches:
 
-**On the provided match** (no labels, so no score): 396 possessions, mean 10.2 s; graded frames
-37 % `H`, 27 % `A`, 37 % `D`. On the five public minutes (a correctness check only; the ball is
-visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.619, home/away
-correct on 95.4 % of live frames, 14 predicted possessions against 17 true ones.
+| model | mean `spellF1` | matches improved over the line above |
+|---|---|---|
+| tracking only | 0.572 | – |
+| + set-piece tags | 0.577 | 6 of 7 |
+| + phase tags (submitted) | 0.595 | 7 of 7 |
+
+Frame accuracy of the model is 89.3 % inside simulated blackouts (87.7 % without tags) and
+94.6 % where the ball is visible. The model predicts 282–339 possessions per match against
+370–511 true ones: most of the missing ones are very short.
+
+**On the provided match** (no labels, so no score): 399 possessions, mean 10.2 s; graded frames
+37 % `H`, 26 % `A`, 36 % `D`. On the five public minutes (a correctness check only; the ball is
+visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.594, home/away
+correct on 94.0 % of live frames, 14 predicted possessions against 17 true ones. Without Smart
+Tagging it was 0.619; the difference is smaller than one possession (about 0.06 there), and by
+the rules the public window does not choose between versions.
 
 **Blackout consistency without labels.** We added simulated blackouts where the ball is visible
 on the real match and compared the two predictions: on the newly blacked-out frames they agree on
-77.6 % of frames, and the possessions match with `spellF1` 0.79. Real blackouts therefore cost
-something like a fifth of the frame decisions they cover.
+79.6 % of frames (77.6 % without tags), and the possessions match with `spellF1` 0.82 (0.79).
+Real blackouts therefore cost something like a fifth of the frame decisions they cover.
 
 **Domain check.** Feature distributions on the real match and on the corrupted DFL matches were
 compared feature by feature; no standardised mean difference exceeds 0.7 and no missing-value
 share differs by more than 0.25, so no feature was dropped. Tracked players per team match
 (10.2 vs 10.2). The largest differences: the ball moves faster (6.8 vs 4.4 m/s averaged over
-20 s) and Barcelona's team length is larger (55 vs 44 m).
+20 s), Barcelona's team length is larger (55 vs 44 m), and more phase tags are active at once on
+the real match (1.6 vs 0.7 on average), because the simulation finds fewer box entries than
+Metrica tags (41 against 72 per match for the ball, 46 against 97 for players).
 
 **Limitations.**
 
 - *The DFL score is not the score on this match.* The training labels are another provider's
-  possession flag, and the corruption is a model of the real tracking's defects. The public window
-  is too short to say how far the real score is from 0.57.
-- *Short possessions are missed.* The decoder never outputs a possession under 1.5 s; the public
-  window has two (0.8 s and 1.3 s), and DFL matches have many more.
+  possession flag, the corruption is a model of the real tracking's defects, and the DFL tags are
+  our model of Metrica's tagging. The public window is too short to say how far the real score
+  is from 0.59.
+- *Short possessions are missed.* The public window has two (0.8 s and 1.3 s) and we find
+  neither; on the DFL matches we predict a quarter to a third fewer possessions than there are.
 - *Stoppages are under-detected on the public window*: dead ball is 19.6 % of it, our output
   4.8 %. Three stoppages of 14–20 s are mostly labelled as possession there. On the whole match
   our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
-- *A large gap between in-sample and out-of-fold scores* (0.85 vs 0.57 on DFL) says the model
+- *A large gap between in-sample and out-of-fold scores* (0.88 vs 0.59 on DFL) says the model
   memorises match specifics; stronger regularisation or more matches would help.
 - Turnovers deep inside a long blackout are guessed from team movement only.
 
-**With more time** we would: label short contested phases better (event data of the DFL dataset
-marks passes and tackles, which would give a sharper "controlled possession" rule); add matches
+**With more time** we would: simulate the box tags closer to Metrica's frequency; add matches
 from other providers; use the broadcast ball despite its small coverage, with a threshold judged on
 the training matches; and detect stoppages from the referee's whistle in the audio track.

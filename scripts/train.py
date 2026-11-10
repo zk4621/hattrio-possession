@@ -21,7 +21,7 @@ from possession.model import (LGB_PARAMS, N_ROUNDS, predict_proba, save, save_de
 from possession.paths import MODELS
 from possession.rules import baseline_codes, rule_proba
 from possession.scoring import score
-from possession.sources import load_flags
+from possession.sources import attach_dfl_sources, load_flags
 
 POSS_MIN = [6, 12, 25, 38, 50]
 DEAD_MIN = [25, 50, 75, 125]
@@ -31,9 +31,7 @@ SUBSAMPLE = 2
 
 def prepare(match_id, i, profile, flags, drop):
     ft, y = load_dfl_match(match_id)
-    if flags["proxy"]:
-        from possession.proxy import simulate_proxy
-        ft.proxy = simulate_proxy(ft, flags["proxy_stats"], seed=i)
+    ft = attach_dfl_sources(ft, y, match_id, i)
     deg = degrade(ft, profile, seed=i)
     blacked = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
     F, names = build_features(deg)
@@ -86,7 +84,7 @@ def main() -> int:
     matches = [prepare(mid, i, profile, flags, set(args.drop)) for i, mid in enumerate(DFL_MATCH_IDS)]
     names = matches[0]["names"]
     print(f"prepared {len(matches)} matches, {len(names)} features, "
-          f"proxy={flags['proxy']} broadcast={flags['broadcast']} "
+          f"proxy={flags['proxy']} broadcast={flags['broadcast']} tags={flags['tags']} phases={flags['phases']} "
           f"({time.time() - t0:.0f} s)", flush=True)
 
     # leave-one-match-out
@@ -116,7 +114,8 @@ def main() -> int:
           f"({time.time() - t0:.0f} s)", flush=True)
 
     # report
-    report = {"profile": args.profile, "flags": {k: flags[k] for k in ("proxy", "broadcast")}, "dropped": args.drop,
+    report = {"profile": args.profile,
+              "flags": {k: flags[k] for k in ("proxy", "broadcast", "tags", "phases")}, "dropped": args.drop,
               "decoder": {"min_len": list(cfg.min_len), "switch_penalty": cfg.switch_penalty},
               "grid_top10": [{"spell_f1": a, "macro_f1": b, "cfg": list(c)} for a, b, c in table[:10]],
               "matches": {}}

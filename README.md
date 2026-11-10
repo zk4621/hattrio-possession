@@ -40,7 +40,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-f7e6f5fe413a1732e756fd4ccda58d0533e9cff3d5ca703b615cde5f90bb9f82
+2f4f40bd8dc60b14ea9b5e35b1005cb969f4267323ecfa3174519787f44b0d02
 ```
 
 Check the format with the organisers' validator:
@@ -57,12 +57,28 @@ uv run python scripts/describe_external.py     # possession statistics of the DF
 uv run python scripts/measure_proxy.py         # camera view centre: measured, adopted or not
 uv run python scripts/sync_broadcast.py        # broadcast ball: measured, adopted or not
 uv run python scripts/measure_atd_profile.py   # blackout profile of the provided tracking
+uv run python scripts/describe_tagging.py      # what the Smart Tagging contains (aggregates)
+```
+
+The Smart Tagging profile needs a prediction made without tags, so the model is trained twice.
+First with `"smart_tagging": false` and `"smart_tagging_phases": false` in `models/sources.json`:
+
+```bash
 uv run python scripts/train.py --profile atd   # CV, decoder tuning, final model (~10 min)
+uv run python scripts/make_submission.py --team HatTrio --proba model
+uv run python scripts/measure_tag_profile.py --pred outputs/HatTrio.csv
+```
+
+then with both set to `true`:
+
+```bash
+uv run python scripts/train.py --profile atd
 uv run python scripts/compare_domains.py       # feature distributions, provided vs DFL
 ```
 
-`models/sources.json` records which extra ball sources were adopted (neither was);
-`models/cv_report.json` holds the cross-validation results.
+`models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
+proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
+profile; `models/cv_report.json` holds the cross-validation results.
 
 Reference evaluations on the DFL matches:
 

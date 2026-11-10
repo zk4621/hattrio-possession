@@ -13,7 +13,7 @@ from possession.degrade import DegradeProfile, degrade
 from possession.features import build_features
 from possession.io_dfl import DFL_MATCH_IDS, load_dfl_match
 from possession.paths import MODELS, OUTPUTS
-from possession.sources import load_flags
+from possession.sources import attach_dfl_sources
 
 SMD_MAX = 1.0
 NAN_DIFF_MAX = 0.25
@@ -54,15 +54,11 @@ def main() -> int:
     atd = Acc(len(names))
     atd.add(F[ft.period > 0])
     del F
-    flags = load_flags()
     profile = DegradeProfile.from_json(MODELS / "atd_profile.json")
     dfl = Acc(len(names))
     for i, mid in enumerate(DFL_MATCH_IDS):
-        d, _ = load_dfl_match(mid)
-        if flags["proxy"]:
-            from possession.proxy import simulate_proxy
-            d.proxy = simulate_proxy(d, flags["proxy_stats"], seed=i)
-        d = degrade(d, profile, seed=i)
+        d, y = load_dfl_match(mid)
+        d = degrade(attach_dfl_sources(d, y, mid, i), profile, seed=i)
         G, gnames = build_features(d)
         assert gnames == names
         dfl.add(G[d.period > 0])

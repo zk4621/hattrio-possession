@@ -11,6 +11,7 @@ import warnings
 import numpy as np
 
 from .frames import FrameTable
+from .tagging import PH_NAMES, SP_NAMES, tag_features
 
 CLIP = 3000
 INTERP_MAX = 12
@@ -243,19 +244,24 @@ def _period_features(ft: FrameTable, a: int, z: int, with_proxy: bool) -> dict[s
     return f
 
 
-def feature_names(with_proxy: bool) -> list[str]:
+def feature_names(with_proxy: bool, with_tags: bool = False) -> list[str]:
     names = BASE_NAMES + window_names(WINDOWED)
     if with_proxy:
         names = names + PROXY_NAMES + window_names(PROXY_WINDOWED)
+    if with_tags:
+        names = names + SP_NAMES + PH_NAMES
     return names
 
 
 def build_features(ft: FrameTable) -> tuple[np.ndarray, list[str]]:
     with_proxy = ft.proxy is not None
-    names = feature_names(with_proxy)
+    with_tags = ft.tags is not None
+    names = feature_names(with_proxy, with_tags)
     F = np.full((ft.n_frames, len(names)), np.nan, dtype=np.float32)
     for _, a, z in ft.period_slices():
         f = _period_features(ft, a, z, with_proxy)
+        if with_tags:
+            f.update(tag_features(ft.tags, a, z))
         for j, n in enumerate(names):
             F[a:z, j] = f[n]
     return F, names

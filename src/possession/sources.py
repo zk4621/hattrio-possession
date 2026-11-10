@@ -1,7 +1,7 @@
 """Optional extra ball sources, switched on by models/sources.json (Tasks 9-11).
 
-Format: {"camera_proxy": bool, "proxy_stats": {...}, "broadcast_ball": bool}.
-An absent models/sources.json means both sources are off.
+Format: {"camera_proxy": bool, "proxy_stats": {...}, "broadcast_ball": bool,
+"smart_tagging": bool}. An absent models/sources.json, or an absent key, means that source is off.
 """
 from __future__ import annotations
 
@@ -14,11 +14,9 @@ SOURCES_PATH = MODELS / "sources.json"
 
 
 def read_sources() -> dict:
-    if not SOURCES_PATH.exists():
-        return {"camera_proxy": False, "broadcast_ball": False}
-    d = json.loads(SOURCES_PATH.read_text())
-    d.setdefault("camera_proxy", False)
-    d.setdefault("broadcast_ball", False)
+    d = json.loads(SOURCES_PATH.read_text()) if SOURCES_PATH.exists() else {}
+    for key in ("camera_proxy", "broadcast_ball", "smart_tagging", "smart_tagging_phases"):
+        d.setdefault(key, False)
     return d
 
 
@@ -33,6 +31,7 @@ def write_sources(**updates) -> dict:
 def load_flags() -> dict:
     d = read_sources()
     return {"proxy": bool(d["camera_proxy"]), "broadcast": bool(d["broadcast_ball"]),
+            "tags": bool(d["smart_tagging"]), "phases": bool(d["smart_tagging_phases"]),
             "proxy_stats": d.get("proxy_stats")}
 
 
@@ -45,4 +44,31 @@ def attach_sources(ft: FrameTable) -> FrameTable:
     if flags["proxy"]:
         from .proxy import competition_proxy
         ft.proxy = competition_proxy(ft)
+    if flags["tags"] or flags["phases"]:
+        from .tagging import PH_KEYS, SP_CODE, competition_tags
+        ft.tags = [g for g in competition_tags()
+                   if (flags["tags"] and g.code == SP_CODE) or (flags["phases"] and g.code in PH_KEYS)]
+    return ft
+
+
+TAG_SEED = 200
+
+
+def attach_dfl_sources(ft: FrameTable, y, match_id: str, index: int) -> FrameTable:
+    """Simulated counterparts of the adopted sources on a DFL match (before degradation)."""
+    flags = load_flags()
+    if flags["proxy"]:
+        from .proxy import simulate_proxy
+        ft.proxy = simulate_proxy(ft, flags["proxy_stats"], seed=index)
+    if flags["tags"] or flags["phases"]:
+        from .tagging import (dfl_phase_candidates, dfl_set_pieces, simulate_phase_tags,
+                              simulate_set_piece_tags)
+        profile = json.loads((MODELS / "tag_profile.json").read_text())
+        ft.tags = []
+        if flags["tags"]:
+            ft.tags += simulate_set_piece_tags(dfl_set_pieces(match_id, ft.period), profile,
+                                               seed=TAG_SEED + index)
+        if flags["phases"]:
+            ft.tags += simulate_phase_tags(dfl_phase_candidates(ft, y), profile,
+                                           seed=TAG_SEED + 50 + index)
     return ft

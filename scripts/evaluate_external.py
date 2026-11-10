@@ -11,6 +11,7 @@ from possession.paths import OUTPUTS
 from possession.pipeline import predict_codes
 from possession.rules import baseline_codes, rule_proba
 from possession.scoring import score
+from possession.sources import attach_dfl_sources
 
 def get_profile(name):
     if name == "none":
@@ -44,6 +45,7 @@ def main() -> int:
     print("match   spell_f1  macro_f1  n_gt  n_pred")
     for mid in args.matches:
         ft, y = load_dfl_match(mid)
+        ft = attach_dfl_sources(ft, y, mid, DFL_MATCH_IDS.index(mid))
         if profile is not None:
             from possession.degrade import degrade
             ft = degrade(ft, profile, seed=DFL_MATCH_IDS.index(mid))
@@ -75,6 +77,7 @@ def consistency(args) -> int:
     print("match   agree_new  spell(deg vs clean)  spell_true_clean  spell_true_deg")
     for mid in args.matches:
         ft, y = load_dfl_match(mid)
+        ft = attach_dfl_sources(ft, y, mid, DFL_MATCH_IDS.index(mid))
         deg = degrade(ft, profile, seed=DFL_MATCH_IDS.index(mid))
         new = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
         clean = predict_codes(ft, proba_fn, cfg)

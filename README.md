@@ -4,8 +4,9 @@ Submission of team **HatTrio** to *More than a Hack 2027*, Phase 1 (Metrica Spor
 For each of the 199,319 frames of the tactical video of Barcelona vs Athletic Club the pipeline
 outputs `H` (home in possession), `A` (away in possession), `D` (dead ball) or `X` (outside the
 two halves). A LightGBM model trained on seven public Bundesliga matches, whose clean tracking is
-corrupted to look like the provided tracking, gives per-frame probabilities; a minimum-duration
-Viterbi decoder turns them into possessions.
+corrupted to look like the provided tracking, and the three Metrica Sports sample games gives
+per-frame probabilities; a second model scores where possession changes, and a minimum-duration
+Viterbi decoder turns both into possessions.
 
 The approach, the data used and the measured results are in
 [docs/technical_document.md](docs/technical_document.md).
@@ -40,7 +41,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-a23e1669d7ed2c857d0f130a9961f67fd8926268031fcd12d3ca878662bd58bb
+2a3f396b219da3be134bcc6819f68996d351219b577315b8a813ffdd96914f87
 ```
 
 Check the format with the organisers' validator:
@@ -69,17 +70,20 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 uv run python scripts/measure_tag_profile.py --pred outputs/HatTrio.csv
 ```
 
-then with both set to `true`, this time with the change model:
+then with both set to `true`. The submitted model is trained on the DFL matches and the three
+Metrica Sports sample games (clone https://github.com/metrica-sports/sample-data into
+`external/metrica`), and its decoder is chosen on the Metrica games:
 
 ```bash
-uv run python scripts/train.py --profile atd --change
+uv run python scripts/compare_training_sets.py <scratch dir>   # DFL / Metrica / both (~30 min)
+uv run python scripts/train_final.py <scratch dir>             # writes models/
 uv run python scripts/compare_domains.py       # feature distributions, provided vs DFL
 ```
 
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
 profile; `models/change_lgb.txt` is the change model; `models/cv_report.json` holds the
-cross-validation results.
+comparison of training sets.
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned
@@ -125,6 +129,8 @@ tests/            pytest suite
 - Own code: team HatTrio (no licence file yet; the team chooses one before publishing).
 - `third_party/mtah2027/`: the challenge repository by Metrica Sports, MIT licence, vendored
   unmodified at commit `f8f2629` (see `VENDORED.md`).
+- Training data, Metrica Sports sample games (https://github.com/metrica-sports/sample-data),
+  used with acknowledgement as the repository asks; not redistributed here.
 - Training data: Bassek, M., Rein, R., Weber, H., Memmert, D. (2025). *An integrated dataset of
   spatiotemporal and event data in elite soccer.* Scientific Data.
   https://doi.org/10.1038/s41597-025-04505-y — dataset https://doi.org/10.6084/m9.figshare.28196177.v1,

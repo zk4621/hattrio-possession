@@ -1,10 +1,10 @@
 {
  "min_len": [
-  12,
-  12,
+  25,
+  25,
   75
  ],
  "switch_penalty": 2000,
  "min_len_seen": null,
- "change_weight": 1.0
+ "change_weight": 0.5
 }

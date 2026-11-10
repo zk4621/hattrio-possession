@@ -12,9 +12,6 @@ from possession.pipeline import predict_codes
 from possession.rules import baseline_codes, rule_proba
 from possession.scoring import score
 
-DEGRADE_SEED = 1000
-
-
 def get_profile(name):
     if name == "none":
         return None
@@ -22,7 +19,7 @@ def get_profile(name):
     if name == "default":
         return DEFAULT_PROFILE
     from possession.paths import MODELS
-    return DegradeProfile.load(MODELS / "atd_profile.json")
+    return DegradeProfile.from_json(MODELS / "atd_profile.json")
 
 
 def main() -> int:
@@ -41,11 +38,11 @@ def main() -> int:
 
     rows = {}
     print("match   spell_f1  macro_f1  n_gt  n_pred")
-    for i, mid in enumerate(args.matches):
+    for mid in args.matches:
         ft, y = load_dfl_match(mid)
         if profile is not None:
             from possession.degrade import degrade
-            ft = degrade(ft, profile, seed=DEGRADE_SEED + i)
+            ft = degrade(ft, profile, seed=DFL_MATCH_IDS.index(mid))
         if args.proba == "baseline":
             codes = baseline_codes(ft)
         else:

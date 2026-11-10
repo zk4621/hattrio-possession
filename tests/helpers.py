@@ -40,7 +40,7 @@ def _blank_outside(ft):
     return ft
 
 
-def _sines(rng, T, n, amp, n_terms=3, fmax=0.004):
+def _sines(rng, T, n, amp, n_terms=3, fmax=0.002):
     """(T, n) sums of a few low-frequency sinusoids."""
     t = np.arange(T)[:, None]
     out = np.zeros((T, n))
@@ -155,3 +155,9 @@ def empty_table(T, periods):
     ft = make_table(T, [np.nan, np.nan], np.full((11, 2), np.nan), np.full((11, 2), np.nan),
                     period=_periods_array(T, periods), home_speed=np.nan, away_speed=np.nan)
     return ft
+
+
+def run_lengths(mask):
+    m = np.concatenate(([0], np.asarray(mask).astype(np.int8), [0]))
+    d = np.diff(m)
+    return np.flatnonzero(d == -1) - np.flatnonzero(d == 1)

@@ -121,3 +121,37 @@ def scene_with_duplicates(T=50):
     home = team(hx, [0, -20, -7, 7, 20, -15, 0, 15, -5, 5, 1, 1, 3, 3])
     away = team([40, 30, 30, 30, 30, 20, 20, 20, 10, 10, 5])
     return make_table(T, [0.0, 0.0], home, away)
+
+
+def _two_player_scene(T, home_xy, away_xy, ball_xy):
+    ft = make_table(T, ball_xy, np.zeros((1, 2)), np.zeros((1, 2)),
+                    home_speed=3.0, away_speed=3.0)
+    ft.home[:, 0] = home_xy
+    ft.away[:, 0] = away_xy
+    return ft
+
+
+def scene_handover(T=400):
+    """Home player on the ball, away 10 m off, for frames 0..199; the reverse for 200..399."""
+    ball = np.zeros((T, 2), np.float32)
+    home = np.zeros((T, 2), np.float32)
+    away = np.zeros((T, 2), np.float32)
+    away[:200, 0] = 10.0
+    home[200:, 0] = 10.0
+    return _two_player_scene(T, home, away, ball)
+
+
+def scene_with_long_gap(T=400):
+    ball = np.zeros((T, 2), np.float32)
+    home = np.zeros((T, 2), np.float32)
+    away = np.zeros((T, 2), np.float32)
+    away[:, 0] = 10.0
+    ft = _two_player_scene(T, home, away, ball)
+    ft.ball[100:250] = np.nan
+    return ft
+
+
+def empty_table(T, periods):
+    ft = make_table(T, [np.nan, np.nan], np.full((11, 2), np.nan), np.full((11, 2), np.nan),
+                    period=_periods_array(T, periods), home_speed=np.nan, away_speed=np.nan)
+    return ft

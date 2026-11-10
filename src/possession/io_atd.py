@@ -125,3 +125,21 @@ def load_competition(source: str = "tactical") -> FrameTable:
     _save(cache, ft)
     return ft
 
+
+
+HALF_LABELS = {"1st Half": 1, "2nd Half": 2}
+
+
+def kickoff_tag_frames() -> dict[int, int]:
+    """First frame of the Smart Tagging 'Kick Off (Start)' set piece of each half."""
+    st = vendor_import("load_smart_tagging")
+    events = st.load(data_dir=str(data_dir()))
+    out: dict[int, int] = {}
+    for e in events:
+        tags = e.get("tags") or {}
+        if (str(e.get("code") or "").lower() == "set pieces"
+                and str(tags.get("Type") or "").lower() == "kick off (start)"
+                and tags.get("Half") in HALF_LABELS):
+            p = HALF_LABELS[tags["Half"]]
+            out[p] = min(out.get(p, e["start_frame"]), e["start_frame"])
+    return out

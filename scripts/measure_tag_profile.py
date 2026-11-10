@@ -20,15 +20,18 @@ from possession.frames import FPS
 from possession.labels import A, D, H, read_codes
 from possession.io_dfl import DFL_MATCH_IDS, load_dfl_match
 from possession.paths import MODELS
-from possession.tagging import (PH_KEYS, SP_CODE, SP_KINDS, ball_speed, competition_tags,
-                                detect_restart, dfl_phase_candidates, dfl_set_pieces)
+from possession.tagging import (ENTRY_CODES, PH_KEYS, SP_CODE, SP_KINDS, attack_sign, ball_speed,
+                                competition_tags, detect_restart, dfl_phase_candidates,
+                                dfl_set_pieces, entry_moments)
 
 LO, HI = -250, 375          # search window around the tag start / the true restart (frames)
 MIN_OFFSETS = 5
-# How long before its moment a phase tag starts. Measured on the provided match: inside
-# "ATTACKING TRANSITION" tags the prediction made without tags switches to the tagged team
-# between 2 and 4 s after the tag start (scratch analysis reported in the technical document).
+# How long before its moment a phase tag starts, for codes whose moment cannot be found in the
+# tracking alone (build-ups, regains). Measured on the provided match: inside "ATTACKING
+# TRANSITION" tags the prediction made without tags switches to the tagged team between 2 and
+# 4 s after the tag start. Codes in ENTRY_CODES get their own measured distribution (pre_q).
 PRE_FRAMES = [50, 100]
+MOMENT_LO, MOMENT_HI = -250, 750   # search a tag's moment from 10 s before to 30 s after its start
 # Early part of a phase tag where its team is compared: the first 4 s, or 4-8 s for regains
 # (whose moment comes 2-4 s after the tag start).
 EARLY = {"ATTACKING TRANSITION": (100, 200)}
@@ -85,6 +88,15 @@ def main() -> int:
     durations = [g.end - g.start for g in tags]
 
     graded = ft.period > 0
+    sign = attack_sign(ft)
+    pre_found = defaultdict(list)
+    for g in all_tags:
+        if g.code not in ENTRY_CODES or g.team == 0 or not 0 <= g.start < ft.n_frames:
+            continue
+        a, z = max(g.start + MOMENT_LO, 0), min(g.start + MOMENT_HI, ft.n_frames)
+        m = entry_moments(g.code, ft, a, z, g.team, sign[g.start] * g.team)
+        if len(m):
+            pre_found[g.code].append(a + int(m[0]) - g.start)
     real_early = {}
     for code in PH_KEYS:
         e0, e1 = EARLY.get(code, EARLY_DEFAULT)
@@ -107,8 +119,10 @@ def main() -> int:
         for code, rows in dfl_phase_candidates(d, y).items():
             dfl_cands[code] += len(rows)
             e0, e1 = EARLY.get(code, EARLY_DEFAULT)
+            pre = (int(np.median(pre_found[code])) if len(pre_found[code]) >= MIN_OFFSETS
+                   else mid_pre)
             for row, team in rows:
-                w = y[max(row - mid_pre + e0, 0):max(row - mid_pre + e1, 0)]
+                w = y[max(row - pre + e0, 0):max(row - pre + e1, 0)]
                 live = (w == H) | (w == A)
                 sim_tot[code] += int(live.sum())
                 sim_same[code] += int((w[live] == (H if team == 1 else A)).sum())
@@ -146,7 +160,7 @@ def main() -> int:
     profile["pre_frames"] = PRE_FRAMES
     profile["codes"] = {}
     print("\nphase code              real  with_team  dfl candidates/match  keep  early agreement "
-          "real / sim  team_flip  length p10/p50/p90")
+          "real / sim  team_flip  moment - tag start (n)  length p10/p50/p90")
     for code in PH_KEYS:
         gs = [g for g in all_tags if g.code == code]
         per_match = dfl_cands[code] / n_dfl
@@ -162,9 +176,11 @@ def main() -> int:
             "dfl_per_match": per_match, "keep": keep,
             "duration_q": q101(lengths) if lengths else [0.0] * 101,
         }
+        if len(pre_found[code]) >= MIN_OFFSETS:
+            profile["codes"][code]["pre_q"] = q101(pre_found[code])
         print(f"{code[:22]:<22} {len(gs):5d}  {sum(g.team != 0 for g in gs):9d}  "
               f"{per_match:20.1f}  {keep:4.2f}  {real_early[code]:15.0%} / {sim_early:3.0%}  "
-              f"{flip:9.2f}  {show(lengths)}")
+              f"{flip:9.2f}  {show(pre_found[code])} ({len(pre_found[code])})  {show(lengths)}")
     MODELS.mkdir(parents=True, exist_ok=True)
     (MODELS / "tag_profile.json").write_text(json.dumps(profile, indent=1))
     return 0

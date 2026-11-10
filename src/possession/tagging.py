@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import mmap
 import re
+import warnings
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import datetime
@@ -249,16 +250,18 @@ BOX_DEPTH, BOX_HALF_WIDTH = 16.5, 20.16
 CHANCE_DEPTH, CHANCE_HALF_WIDTH = 25.0, 20.0
 LONG_BALL_M, LONG_BALL_FRAMES = 30.0, 50
 # (frames of possession before the moment, frames after it) each code requires, and whether
-# every moment of a possession counts or only its first. Chosen, without labels, so that the
-# simulated tags match the real ones in how often they occur and in how long their team keeps
-# the ball (see scripts/measure_tag_profile.py and the technical document): the real attacking
-# zone tags fire on most entries, even in short possessions; build-ups, progressions and regains
-# are sustained.
+# every moment of a possession counts or only its first. Build-ups and regains in the real tags
+# are sustained (their team keeps the ball for 10-20 s), so the simulation requires that. The
+# real zone tags fire on nearly every entry, also when the ball is lost right after it (a cross
+# that is cleared), so the zone codes require nothing.
 NEEDS = {"ATTACKING TRANSITION": (0, 150, False), "BUILD UP": (100, 250, False),
-         "PROGRESSION": (50, 75, True), "CREATING CHANCES": (25, 25, True),
-         "LONG BALL": (100, 75, False), "BALL IN FINAL THIRD": (25, 25, True),
-         "BALL IN THE BOX": (25, 25, True), "PLAYERS IN THE BOX": (25, 25, True)}
-MIN_GAP = 125         # two moments of one code closer than 5 s are one moment
+         "PROGRESSION": (50, 75, True), "CREATING CHANCES": (0, 0, True),
+         "LONG BALL": (100, 75, False), "BALL IN FINAL THIRD": (0, 0, True),
+         "BALL IN THE BOX": (0, 0, True), "PLAYERS IN THE BOX": (0, 0, True)}
+MIN_GAP = 250         # two moments of one code closer than 10 s are one moment, as in the real tags
+# Codes whose moment can be found in tracking alone, on the provided match as on DFL.
+ENTRY_CODES = ("PROGRESSION", "BALL IN FINAL THIRD", "BALL IN THE BOX", "CREATING CHANCES",
+               "PLAYERS IN THE BOX", "LONG BALL")
 
 
 def _segments(y: np.ndarray, a: int, z: int):
@@ -270,9 +273,58 @@ def _segments(y: np.ndarray, a: int, z: int):
     return [(a + int(s0), a + int(s1), int(w[s0])) for s0, s1 in zip(bounds[:-1], bounds[1:])]
 
 
-def _entries(v: np.ndarray, thresh: float) -> np.ndarray:
-    """Indices where v goes from below thresh to at or above it."""
-    return np.flatnonzero((v[:-1] < thresh) & (v[1:] >= thresh)) + 1
+def _crossings(v: np.ndarray, thresh: float) -> np.ndarray:
+    """Indices where v, over its non-NaN values, goes from below thresh to at or above it."""
+    idx = np.flatnonzero(~np.isnan(v))
+    if len(idx) < 2:
+        return np.array([], dtype=np.int64)
+    w = v[idx]
+    k = np.flatnonzero((w[:-1] < thresh) & (w[1:] >= thresh)) + 1
+    return idx[k]
+
+
+def _masked(bx: np.ndarray, inside: np.ndarray) -> np.ndarray:
+    """bx where `inside`, -inf where the ball is seen elsewhere, NaN where it is not seen."""
+    return np.where(np.isfinite(bx), np.where(inside, bx, -np.inf), np.nan)
+
+
+def entry_moments(code: str, ft, a: int, z: int, team: int, dirx: float) -> np.ndarray:
+    """Offsets in [0, z-a) where the moment of `code` happens for `team` attacking along dirx."""
+    L = ft.pitch[0]
+    b = ft.ball[a:z].astype(np.float64)
+    bx, by = dirx * b[:, 0], np.abs(b[:, 1])
+    with np.errstate(invalid="ignore"):
+        if code == "PROGRESSION":
+            return _crossings(bx, -L / 6)
+        if code == "BALL IN FINAL THIRD":
+            return _crossings(bx, L / 6)
+        if code == "BALL IN THE BOX":
+            return _crossings(_masked(bx, by < BOX_HALF_WIDTH), L / 2 - BOX_DEPTH)
+        if code == "CREATING CHANCES":
+            return _crossings(_masked(bx, by < CHANCE_HALF_WIDTH), L / 2 - CHANCE_DEPTH)
+        if code == "PLAYERS IN THE BOX":
+            players = (ft.home if team == 1 else ft.away)[a:z].astype(np.float64)
+            inside = ((dirx * players[..., 0] > L / 2 - BOX_DEPTH)
+                      & (np.abs(players[..., 1]) < BOX_HALF_WIDTH)).sum(axis=1)
+            return _crossings(inside.astype(np.float64), 1.0)
+        if code == "LONG BALL":
+            travel = np.full(len(b), np.nan)
+            if len(b) > LONG_BALL_FRAMES:
+                travel[:-LONG_BALL_FRAMES] = np.linalg.norm(
+                    b[LONG_BALL_FRAMES:] - b[:-LONG_BALL_FRAMES], axis=1)
+            return _crossings(travel, LONG_BALL_M)
+    raise KeyError(code)
+
+
+def attack_sign(ft) -> np.ndarray:
+    """Per frame: +1 where the home team attacks towards +x, -1 where towards -x, 0 outside play."""
+    out = np.zeros(ft.n_frames)
+    for _, a, z in ft.period_slices():
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)       # halves with no tracked team
+            gap = np.nanmean(np.nanmean(ft.away[a:z, :, 0], 1) - np.nanmean(ft.home[a:z, :, 0], 1))
+        out[a:z] = -1.0 if np.isfinite(gap) and gap < 0 else 1.0
+    return out
 
 
 def dfl_phase_candidates(ft, y: np.ndarray) -> dict[str, list[tuple[int, int]]]:
@@ -283,6 +335,7 @@ def dfl_phase_candidates(ft, y: np.ndarray) -> dict[str, list[tuple[int, int]]]:
     from .labels import A, H
     L, W = ft.pitch
     out = {code: [] for code in PH_KEYS}
+    sign = attack_sign(ft)
 
     def add(code, s0, n, idx):
         before, after, every = NEEDS[code]
@@ -293,37 +346,20 @@ def dfl_phase_candidates(ft, y: np.ndarray) -> dict[str, list[tuple[int, int]]]:
             out[code].append((s0 + i, team))
 
     for _, a, z in ft.period_slices():
-        hx = np.nanmean(ft.home[a:z, :, 0], axis=1)
-        ax = np.nanmean(ft.away[a:z, :, 0], axis=1)
-        gap = np.nanmean(ax - hx)
-        s = -1.0 if np.isfinite(gap) and gap < 0 else 1.0
         segs = _segments(y, a, z)
         for i, (s0, s1, k) in enumerate(segs):
             if k not in (H, A):
                 continue
             team = 1 if k == H else -1
-            dirx = s * team
+            dirx = sign[s0] * team
             n = s1 - s0
             bx = dirx * ft.ball[s0:s1, 0].astype(np.float64)
-            by = np.abs(ft.ball[s0:s1, 1].astype(np.float64))
             prev = segs[i - 1][2] if i else None
             if prev in (H, A) and prev != k:
                 add("ATTACKING TRANSITION", s0, n, 0)
             add("BUILD UP", s0, n, np.flatnonzero(bx < -L / 6))
-            add("PROGRESSION", s0, n, _entries(bx, -L / 6))
-            add("BALL IN FINAL THIRD", s0, n, _entries(bx, L / 6))
-            add("BALL IN THE BOX", s0, n,
-                _entries(np.where(by < BOX_HALF_WIDTH, bx, -np.inf), L / 2 - BOX_DEPTH))
-            add("CREATING CHANCES", s0, n,
-                _entries(np.where(by < CHANCE_HALF_WIDTH, bx, -np.inf), L / 2 - CHANCE_DEPTH))
-            players = (ft.home if team == 1 else ft.away)[s0:s1].astype(np.float64)
-            inside = ((dirx * players[..., 0] > L / 2 - BOX_DEPTH)
-                      & (np.abs(players[..., 1]) < BOX_HALF_WIDTH)).sum(axis=1)
-            add("PLAYERS IN THE BOX", s0, n, _entries(inside.astype(np.float64), 1.0))
-            if n > LONG_BALL_FRAMES:
-                b = ft.ball[s0:s1].astype(np.float64)
-                travel = np.linalg.norm(b[LONG_BALL_FRAMES:] - b[:-LONG_BALL_FRAMES], axis=1)
-                add("LONG BALL", s0, n, np.flatnonzero(travel >= LONG_BALL_M))
+            for code in ENTRY_CODES:
+                add(code, s0, n, entry_moments(code, ft, s0, s1, team, dirx))
     return out
 
 
@@ -331,8 +367,9 @@ def simulate_phase_tags(candidates: dict, profile: dict, seed: int) -> list[Tag]
     """Phase tags from candidate moments, thinned to the real count and started a little before.
 
     profile["codes"][code] holds `keep`, `team_known`, `team_flip` (share of tags naming the
-    wrong team, as the real tags sometimes do) and `duration_q`; profile["pre_frames"] is the
-    [low, high] range of how long before its moment a tag starts.
+    wrong team, as the real tags sometimes do), `duration_q` and, where it was measured,
+    `pre_q`: how long before its moment a tag starts, quantiles 0..100. Codes without `pre_q`
+    use the [low, high] range profile["pre_frames"].
     """
     rng = np.random.default_rng(seed)
     lo, hi = profile["pre_frames"]
@@ -343,7 +380,10 @@ def simulate_phase_tags(candidates: dict, profile: dict, seed: int) -> list[Tag]
             u_keep, u_pre, u_dur, u_team, u_flip = rng.random(5)
             if k is None or u_keep >= k["keep"]:
                 continue
-            pre = int(round(lo + u_pre * (hi - lo)))
+            if "pre_q" in k:
+                pre = int(round(float(np.interp(u_pre * 100.0, np.arange(101), k["pre_q"]))))
+            else:
+                pre = int(round(lo + u_pre * (hi - lo)))
             dur = max(1, int(round(float(np.interp(u_dur * 100.0, np.arange(101),
                                                     k["duration_q"])))))
             start = int(row) - pre

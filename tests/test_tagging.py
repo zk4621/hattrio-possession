@@ -196,3 +196,18 @@ def test_simulated_phase_tags_can_name_the_wrong_team():
     tags = simulate_phase_tags(cands, profile, seed=2)
     wrong = sum(g.team == -1 for g in tags) / len(tags)
     assert 0.15 <= wrong <= 0.35
+
+
+def test_entry_moments_skip_frames_where_the_ball_is_not_seen():
+    from helpers import make_table
+    from possession.tagging import entry_moments
+    T = 300
+    ball = np.zeros((T, 2), np.float32)
+    ball[:, 0] = np.where(np.arange(T) < 150, 30.0, 45.0)    # outside, then inside the right box
+    ft = make_table(T, ball, np.zeros((11, 2)), np.zeros((11, 2)))
+    assert entry_moments("BALL IN THE BOX", ft, 0, T, 1, 1.0).tolist() == [150]
+    ft.ball[140:160] = np.nan                                 # entry happens while unseen
+    assert entry_moments("BALL IN THE BOX", ft, 0, T, 1, 1.0).tolist() == [160]
+    ft.ball[:140] = [45.0, 0.0]                               # inside before the gap: no entry
+    assert entry_moments("BALL IN THE BOX", ft, 0, T, 1, 1.0).tolist() == []
+    assert entry_moments("BALL IN THE BOX", ft, 0, T, -1, -1.0).tolist() == []

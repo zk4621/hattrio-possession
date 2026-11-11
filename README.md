@@ -41,7 +41,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-2a3f396b219da3be134bcc6819f68996d351219b577315b8a813ffdd96914f87
+9543092669d62888a20a7ecfe1302f09018bc420efedf20e26ac06cc7a451655
 ```
 
 Check the format with the organisers' validator:
@@ -71,14 +71,19 @@ uv run python scripts/measure_tag_profile.py --pred outputs/HatTrio.csv
 ```
 
 then with both set to `true`. The submitted model is trained on the DFL matches and the three
-Metrica Sports sample games (clone https://github.com/metrica-sports/sample-data into
-`external/metrica`), and its decoder is chosen on the Metrica games:
+Metrica Sports sample games, weighted twice (clone https://github.com/metrica-sports/sample-data
+into `external/metrica`), and its decoder is chosen on the Metrica games:
 
 ```bash
-uv run python scripts/compare_training_sets.py <scratch dir>   # DFL / Metrica / both (~30 min)
-uv run python scripts/train_final.py <scratch dir>             # writes models/
+uv run python scripts/compare_training_sets.py <dir A>          # DFL / Metrica / both (~30 min)
+uv run python scripts/tune_metrica_weight.py <dir A> <dir B>     # Metrica weight 2, 3, 5 (~25 min)
+uv run python scripts/check_weight2.py <dir C>                   # DFL check, SkillCorner test,
+cp <dir C>/{possession_lgb.txt,change_lgb.txt,decoder.json} models/   # final model (~30 min)
 uv run python scripts/compare_domains.py       # feature distributions, provided vs DFL
 ```
+
+`check_weight2.py` also loads the SkillCorner matches (for the test that rejected them), so
+`external/skillcorner` must be in place.
 
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging

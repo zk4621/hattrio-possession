@@ -56,3 +56,15 @@ def test_change_model_learns_a_rare_event_and_selects_columns_by_name():
     assert p.shape == (20000,) and ((p >= 0) & (p <= 1)).all()
     assert p[y == 1].mean() > 0.5 > p[y == 0].mean()
     assert np.array_equal(p, change_fn(train_change(X, y, names, n_rounds=30))(X[:, ::-1], names[::-1]))
+
+
+def test_sample_weights_change_the_model():
+    X, y, names = synthetic()
+    w = np.where(X[:, 1] > 0, 5.0, 1.0)
+    a = train(X, y, names, n_rounds=10).model_to_string()
+    b = train(X, y, names, n_rounds=10, weight=w).model_to_string()
+    assert a != b and b == train(X, y, names, n_rounds=10, weight=w).model_to_string()
+    from possession.model import train_change
+    yc = (X[:, 2] > 1.5).astype(np.int8)
+    assert (train_change(X, yc, names, n_rounds=5).model_to_string()
+            != train_change(X, yc, names, n_rounds=5, weight=w).model_to_string())

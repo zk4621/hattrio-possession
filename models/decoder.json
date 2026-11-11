@@ -4,7 +4,7 @@
   25,
   75
  ],
- "switch_penalty": 2000,
+ "switch_penalty": 5000,
  "min_len_seen": null,
- "change_weight": 0.5
+ "change_weight": 1.0
 }

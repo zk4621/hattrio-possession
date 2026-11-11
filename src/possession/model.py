@@ -24,8 +24,9 @@ N_CHANGE_ROUNDS = 300
 
 
 def train(X: np.ndarray, y: np.ndarray, names: list[str], params: dict = LGB_PARAMS,
-          n_rounds: int = N_ROUNDS) -> lgb.Booster:
+          n_rounds: int = N_ROUNDS, weight: np.ndarray | None = None) -> lgb.Booster:
     ds = lgb.Dataset(np.asarray(X, dtype=np.float32), label=np.asarray(y, dtype=np.int32),
+                     weight=None if weight is None else np.asarray(weight, dtype=np.float64),
                      feature_name=list(names), free_raw_data=True)
     return lgb.train(dict(params), ds, num_boost_round=n_rounds)
 
@@ -71,10 +72,12 @@ def load_change_fn(cfg: DecoderConfig, path=CHANGE_PATH):
 
 
 def train_change(X: np.ndarray, y: np.ndarray, names: list[str],
-                 n_rounds: int = N_CHANGE_ROUNDS) -> lgb.Booster:
+                 n_rounds: int = N_CHANGE_ROUNDS, weight: np.ndarray | None = None,
+                 params: dict | None = None) -> lgb.Booster:
     ds = lgb.Dataset(np.asarray(X, dtype=np.float32), label=np.asarray(y, dtype=np.int32),
+                     weight=None if weight is None else np.asarray(weight, dtype=np.float64),
                      feature_name=list(names), free_raw_data=True)
-    return lgb.train(dict(CHANGE_PARAMS), ds, num_boost_round=n_rounds)
+    return lgb.train(dict(params or CHANGE_PARAMS), ds, num_boost_round=n_rounds)
 
 
 def change_fn(booster: lgb.Booster) -> Callable[[np.ndarray, list[str]], np.ndarray]:

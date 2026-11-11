@@ -1,0 +1,136 @@
+{
+ "single": {
+  "metrica:1": {
+   "spell_f1": 0.723296354992076,
+   "strict": 0.6561014263074485,
+   "decoder": [
+    12,
+    75,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7145762711864407,
+   "strict": 0.6372881355932204,
+   "decoder": [
+    25,
+    75,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.732923076923077,
+   "strict": 0.6338461538461538,
+   "decoder": [
+    25,
+    75,
+    5000,
+    1.0
+   ]
+  }
+ },
+ "seeds": {
+  "metrica:1": {
+   "spell_f1": 0.7273885350318471,
+   "strict": 0.6528662420382164,
+   "decoder": [
+    25,
+    75,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7164983164983165,
+   "strict": 0.6430976430976432,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7316030534351146,
+   "strict": 0.6442748091603053,
+   "decoder": [
+    25,
+    75,
+    2000,
+    1.0
+   ]
+  }
+ },
+ "resim": {
+  "metrica:1": {
+   "spell_f1": 0.7277864992150705,
+   "strict": 0.640502354788069,
+   "decoder": [
+    25,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7013513513513514,
+   "strict": 0.6283783783783783,
+   "decoder": [
+    25,
+    50,
+    2000,
+    0.5
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.735249621785174,
+   "strict": 0.6354009077155824,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "leaveout": {
+  "metrica:1": {
+   "spell_f1": 0.7223974763406941,
+   "strict": 0.6340694006309148,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.708904109589041,
+   "strict": 0.6301369863013699,
+   "decoder": [
+    25,
+    50,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7334360554699537,
+   "strict": 0.6440677966101694,
+   "decoder": [
+    25,
+    75,
+    5000,
+    1.0
+   ]
+  }
+ },
+ "best_variant": "seeds",
+ "metrica_gain": 0.0015647339545614702,
+ "metrica_rule_passed": false,
+ "members": 5,
+ "smoke": false,
+ "rule": "fixed before the run (2026-11-11): the best variant replaces the single model only if better on all three Metrica games and the mean rises by >= 0.005; then DFL mean >= 0.572"
+}

@@ -37,10 +37,11 @@ def main() -> int:
     profile = get_profile(args.degrade)
     if args.proba == "model":
         from possession.model import load_change_fn, load_decoder, load_proba_fn
+        from possession.sequence import load_sequence
         proba_fn, cfg = load_proba_fn(), load_decoder()
-        change = load_change_fn(cfg)
+        change, sequence = load_change_fn(cfg), load_sequence()
     else:
-        proba_fn, cfg, change = rule_proba, DecoderConfig(), None
+        proba_fn, cfg, change, sequence = rule_proba, DecoderConfig(), None, None
 
     rows = {}
     print("match   spell_f1  macro_f1  n_gt  n_pred")
@@ -53,7 +54,7 @@ def main() -> int:
         if args.proba == "baseline":
             codes = baseline_codes(ft)
         else:
-            codes = predict_codes(ft, proba_fn, cfg, change_fn=change)
+            codes = predict_codes(ft, proba_fn, cfg, change_fn=change, sequence=sequence)
         s = score(y, codes)
         rows[mid] = s
         print(f"{mid}  {s['spell_f1']:8.4f}  {s['macro_f1']:8.4f}  {s['n_gt_spells']:4d}  "
@@ -71,10 +72,11 @@ def consistency(args) -> int:
     from possession.model import load_change_fn, load_decoder, load_proba_fn
     profile = get_profile("atd" if args.degrade == "none" else args.degrade)
     if args.proba == "model":
+        from possession.sequence import load_sequence
         proba_fn, cfg = load_proba_fn(), load_decoder()
-        change = load_change_fn(cfg)
+        change, sequence = load_change_fn(cfg), load_sequence()
     else:
-        proba_fn, cfg, change = rule_proba, DecoderConfig(), None
+        proba_fn, cfg, change, sequence = rule_proba, DecoderConfig(), None, None
     rows = {}
     print("match   agree_new  spell(deg vs clean)  spell_true_clean  spell_true_deg")
     for mid in args.matches:
@@ -82,8 +84,8 @@ def consistency(args) -> int:
         ft = attach_dfl_sources(ft, y, mid, DFL_MATCH_IDS.index(mid))
         deg = degrade(ft, profile, seed=DFL_MATCH_IDS.index(mid))
         new = (ft.period > 0) & np.isfinite(ft.ball[:, 0]) & ~np.isfinite(deg.ball[:, 0])
-        clean = predict_codes(ft, proba_fn, cfg, change_fn=change)
-        dcodes = predict_codes(deg, proba_fn, cfg, change_fn=change)
+        clean = predict_codes(ft, proba_fn, cfg, change_fn=change, sequence=sequence)
+        dcodes = predict_codes(deg, proba_fn, cfg, change_fn=change, sequence=sequence)
         r = {"agree_new": float((clean[new] == dcodes[new]).mean()),
              "spell_deg_vs_clean": score(clean, dcodes)["spell_f1"],
              "spell_true_clean": score(y, clean)["spell_f1"],

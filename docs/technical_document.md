@@ -45,20 +45,27 @@ players.
    tracking provider and lose the ball as often (section 3).
    Home/away symmetry is encouraged (not guaranteed) by training on every match in both orientations (teams and
    labels swapped).
-4. **Change model.** A second LightGBM model scores every frame for "the label changes within
+4. **Sequence network.** A small convolutional network over time reads the same 223 features on
+   every 5th frame and sees ±25 s of play around each step (seven dilated convolutions, 64
+   channels, 141,507 weights). Its `H`/`A`/`D` probabilities, averaged over the match as it is and
+   with home and away exchanged, are interpolated back to 25 frames per second and averaged with
+   LightGBM's, half and half. Trained with PyTorch on the same matches; inference is plain NumPy,
+   so the submission does not need PyTorch (section 3).
+5. **Change model.** A second LightGBM model scores every frame for "the label changes within
    2 frames of here". Besides the frame model's features it reads features that react on the very
    frame something happens: the ball turning or speeding up over 3 frames, the nearest player
    switching team, distances to the ball jumping, the ball crossing a line, the ball appearing or
    vanishing. Its strongest inputs are the ball's acceleration, the players' mean speed jumping and
    the ball turning.
-5. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
+6. **Decoder.** A minimum-duration Viterbi over `H`/`A`/`D`, run per half on integer-quantised
    log-probabilities (`round(1000·log p)`, so the result is bit-for-bit reproducible): it finds the
    labelling that maximises the summed scores minus a cost per switch, with every run at least
-   `min_len` frames long. The cost of a switch on frame t is 5,000 + 1,000 × (−logit of the change
-   model on t), at least 0: cheap where the change model expects a change, dear elsewhere. Tuned
-   on the Metrica games, the training matches closest to the provided one: possessions ≥ 25 frames
-   (1 s), dead-ball stretches ≥ 75 frames (3 s), change-model weight 1.
-6. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
+   `min_len` frames long. The cost of a switch on frame t is 1,000 × (−logit of the change model
+   on t), at least 0: free where the change model expects a change more likely than not, dear
+   elsewhere. Tuned on the Metrica games, the training matches closest to the provided one:
+   possessions ≥ 25 frames (1 s), dead-ball stretches ≥ 75 frames (3 s), change-model weight 1,
+   no fixed cost per switch (5,000 before the sequence network was added).
+7. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
    forced to `D` (the second half's graded window opens before its kick-off).
 
 **Why this rather than something else.**
@@ -66,8 +73,11 @@ players.
 - *Train on other matches rather than hand-tune thresholds*: the rules forbid labels from this
   match, so any threshold would have to be learned elsewhere anyway; a learned model can combine
   the 223 weak signals that matter inside blackouts.
-- *LightGBM rather than a neural sequence model*: deterministic, fast on a CPU, tolerant of
-  missing values, and the long windows give it the temporal context a sequence model would.
+- *LightGBM first, a sequence network next to it*: LightGBM is deterministic, fast on a CPU and
+  tolerant of missing values, and its long windows give it temporal context. A network over the
+  sequence of frames was weaker on its own (0.712 against 0.724 on the Metrica games) but its
+  average with LightGBM was better on all three games (0.730), so it complements LightGBM rather
+  than replacing it (section 3).
 - *A segment decoder rather than frame smoothing*: it outputs possessions directly, and its
   parameters are tuned on the metric itself (`spellF1`), on the training matches.
 - *A separate model for where a change happens*: the metric rewards boundaries within a few
@@ -201,7 +211,7 @@ replaces the DFL-only model only if it beats it on at least 2 of the 3 games.
 |---|---|---|---|---|---|
 | DFL only | 0.646 | 0.633 | 0.674 | 0.651 | 0.592 |
 | Metrica only | 0.693 | 0.703 | 0.705 | 0.700 | 0.362 |
-| DFL + Metrica (submitted) | 0.712 | 0.710 | 0.727 | **0.716** | 0.588 |
+| DFL + Metrica (adopted) | 0.712 | 0.710 | 0.727 | **0.716** | 0.588 |
 
 DFL + Metrica wins on all three games and keeps the DFL matches where they were (0.588 against
 0.592).
@@ -216,7 +226,7 @@ accurate possession boundaries.
 | variant | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
 |---|---|---|---|---|---|
 | weight 1 | 0.712 | 0.710 | 0.727 | 0.716 | 0.628 |
-| weight 2 (submitted) | 0.723 | 0.715 | 0.733 | **0.724** | **0.642** |
+| weight 2 (adopted; the submission averages it with the network below) | 0.723 | 0.715 | 0.733 | **0.724** | **0.642** |
 | weight 3 | 0.720 | 0.711 | 0.735 | 0.722 | 0.640 |
 | weight 5 | 0.728 | 0.705 | 0.732 | 0.722 | 0.638 |
 | regularised, weight 1 | 0.717 | 0.709 | 0.727 | 0.718 | 0.631 |
@@ -227,7 +237,44 @@ Weight 2 passes (DFL mean 0.590). Adding SkillCorner, judged the same way, is wo
 games: its broadcast tracking sees about 5 players per team, against 10 here. The StatsBomb open
 data (github.com/hudl/open-data) has events and 360 snapshots but no continuous tracking, so the
 model cannot use it. `scripts/compare_training_sets.py`, `scripts/tune_metrica_weight.py` and
-`scripts/check_weight2.py` run these comparisons; the last one also trains the submitted model.
+`scripts/check_weight2.py` run these comparisons; the last one also trains the submitted LightGBM
+models.
+
+**Several models averaged (an ensemble; not adopted).** The model scores 0.89 on DFL matches it
+has seen and 0.59 on matches it has not, so we averaged five models whose training differs, in
+three ways, each judged like the weights above (better on all three Metrica games, mean higher by
+at least 0.005, DFL mean at least 0.572), with the rule fixed before the run:
+
+| five models that differ in | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
+|---|---|---|---|---|---|
+| nothing (one model, weight 2) | 0.723 | 0.715 | 0.733 | 0.724 | 0.642 |
+| LightGBM's random seed | 0.727 | 0.717 | 0.732 | 0.725 | 0.647 |
+| the seed and freshly simulated blackouts and tags | 0.728 | 0.701 | 0.735 | 0.722 | 0.635 |
+| the seed, each without one DFL match | 0.722 | 0.709 | 0.733 | 0.722 | 0.636 |
+
+The best (seeds) gains 0.002 and is better on 2 of 3 games: not adopted
+(`scripts/test_ensemble.py`).
+
+**A sequence network (adopted).** LightGBM sees the past and future of a frame only through
+window means of up to 20 s. A network over the sequence (section 1, step 4) learns its own
+context. Every match was predicted by a network that never saw it: for a Metrica game, trained on
+the other two (weighted 2) and six DFL matches, with the seventh DFL match used only to stop
+training where its loss was lowest (checked every 250 steps; the stops fell between 500 and 2,500
+of at most 3,000 steps of 16 windows of 1,024 steps; AdamW, learning rate 0.001, dropout 0.2).
+All settings were fixed before the run, nothing was tuned on the Metrica games, and the rule was
+the same as for the ensemble:
+
+| candidate | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict | DFL mean |
+|---|---|---|---|---|---|---|
+| LightGBM alone (weight 2) | 0.723 | 0.715 | 0.733 | 0.724 | 0.642 | 0.590 |
+| network alone | 0.712 | 0.711 | 0.714 | 0.712 | 0.623 | – |
+| average of both (submitted) | 0.736 | 0.717 | 0.737 | **0.730** | **0.649** | 0.592 |
+
+The average is better on all three games (+0.006) and keeps the DFL matches (0.592), so it was
+adopted; the decoder was then chosen again on the Metrica games (no fixed switch cost). The final
+network is trained on nine matches (DFL match J03WR9 decides when to stop). The NumPy inference
+agrees with PyTorch to within 6·10⁻⁷ in probability. `scripts/test_sequence_model.py` trains
+(with PyTorch, about 11 minutes on an Apple M4 Pro GPU), evaluates and exports it.
 
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
@@ -262,14 +309,16 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 ```
 
 With the data bundle in `data/` (or `MTAH_DATA_DIR`) this regenerates `outputs/HatTrio.csv`
-exactly (SHA-256 `9543092669d62888a20a7ecfe1302f09018bc420efedf20e26ac06cc7a451655`; checked by
+exactly (SHA-256 `fd0544fa184435f9397eb070440b636123a4cb9d5c161eef2f8dc0a7875e37eb`; checked by
 running it twice). Retraining from scratch, including the DFL download, is described in the
-README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed.
+README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed. The sequence
+network's weights are committed (`models/sequence_net.npz`, 0.6 MB): retraining it on a GPU is
+not bit-for-bit reproducible, and the submission uses the committed weights.
 
 ## 6. Results and limitations
 
-**The submitted model** (DFL + Metrica, weight 2) scores 0.723, 0.715 and 0.733 on the three
-Metrica games it never saw (section 3). **How the model was built up**, on the DFL matches with DFL-only
+**The submitted model** (LightGBM on DFL + Metrica, weight 2, averaged with the sequence network)
+scores 0.736, 0.717 and 0.737 (mean 0.730) on the three Metrica games it never saw (section 3). **How the model was built up**, on the DFL matches with DFL-only
 training (leave one match out, corrupted tracking, official scorer):
 
 | match | baseline `spellF1` | rules `spellF1` | model `spellF1` | model `macroF1` |
@@ -292,25 +341,28 @@ the 7 matches improved):
 | + set-piece tags | 0.577 | 6 of 7 |
 | + phase tags | 0.587 | 5 of 7 |
 | + change model | 0.594 | 5 of 7 |
-| + Metrica games in training, weight 2 (submitted) | 0.590 | – (judged on the Metrica games) |
+| + Metrica games in training, weight 2 | 0.590 | – (judged on the Metrica games) |
+| + sequence network, averaged (submitted) | 0.592 | – (judged on the Metrica games) |
 
 Frame accuracy of the DFL-only model is 88.9 % inside simulated blackouts (87.7 % without tags)
 and 94.4 % where the ball is visible. The model predicts 279–339 possessions per match against
 370–511 true ones: most of the missing ones are very short.
 
-**On the provided match** (no labels, so no score): 322 possessions, mean 12.5 s; graded frames
-37 % `H`, 26 % `A`, 37 % `D`. On the five public minutes (a correctness check only; the ball is
-visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.613, home/away
-correct on 93.0 % of live frames, 15 predicted possessions against 17 true ones. Earlier models
-scored 0.571 (DFL + Metrica, weight 1), 0.645 (DFL only) and 0.619 (tracking only) there; one possession moves the score by about 0.06 in those
+**On the provided match** (no labels, so no score): 298 possessions, mean 12.8 s; graded frames
+37 % `H`, 23 % `A`, 40 % `D`. On the five public minutes (a correctness check only, passed: it
+required `spellF1` ≥ 0.3256 and home/away right on at least half of the live frames; the ball is
+visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.594, home/away
+correct on 92.9 % of live frames, 16 predicted possessions against 17 true ones. Earlier models
+scored 0.613 (LightGBM alone, weight 2), 0.571 (weight 1), 0.645 (DFL only) and 0.619 (tracking
+only) there; one possession moves the score by about 0.06 in those
 five minutes, against about 1,000 possessions in the three Metrica games, and by the rules the
 public window does not choose between versions.
 
 **Blackout consistency without labels.** We added simulated blackouts where the ball is visible
 on the real match and compared the two predictions: on the newly blacked-out frames they agree on
-78.2 % of frames (77.6 % with tracking only), and the possessions match with `spellF1` 0.82
-(0.79).
-Real blackouts therefore cost something like a fifth of the frame decisions they cover.
+84.5 % of frames (78.2 % with LightGBM alone, 77.6 % with tracking only), and the possessions match
+with `spellF1` 0.85 (0.82, 0.79). The sequence network makes the prediction steadier through
+blackouts; they still cost something like a sixth of the frame decisions they cover.
 
 **Domain check.** Feature distributions on the real match and on the corrupted DFL matches were
 compared feature by feature; no standardised mean difference exceeds 0.7 and no missing-value
@@ -321,7 +373,7 @@ example 1.62 against 1.64 phase tags active at once).
 
 **Limitations.**
 
-- *The closest estimate of the score on this match* is the submitted model's 0.724 on the three
+- *The closest estimate of the score on this match* is the submitted model's 0.730 on the three
   Metrica sample games, each predicted by a model that never saw it: same tracking provider, the
   ball missing on 32-41 % of frames, possessions changing about as often as in the public five
   minutes. Their labels were derived by us from Metrica's events, not from corrected tracking, so
@@ -338,7 +390,8 @@ example 1.62 against 1.64 phase tags active at once).
   our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
 - *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL, DFL-only model) says the model
-  memorises match specifics; stronger regularisation or more matches would help.
+  memorises match specifics. Stronger regularisation and averaging several LightGBM models did not
+  help on the Metrica games (section 3); more matches would.
 - Turnovers deep inside a long blackout are guessed from team movement only.
 - *Ceilings measured on the DFL matches* (before the change model). With the ball never lost,
   the method scored 0.69 (0.59 with blackouts), so the blackouts cost about 0.10. With perfect

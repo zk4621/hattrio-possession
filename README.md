@@ -5,8 +5,9 @@ For each of the 199,319 frames of the tactical video of Barcelona vs Athletic Cl
 outputs `H` (home in possession), `A` (away in possession), `D` (dead ball) or `X` (outside the
 two halves). A LightGBM model trained on seven public Bundesliga matches, whose clean tracking is
 corrupted to look like the provided tracking, and the three Metrica Sports sample games gives
-per-frame probabilities; a second model scores where possession changes, and a minimum-duration
-Viterbi decoder turns both into possessions.
+per-frame probabilities, averaged with those of a small convolutional network over the sequence of
+frames; a second LightGBM model scores where possession changes, and a minimum-duration Viterbi
+decoder turns both into possessions.
 
 The approach, the data used and the measured results are in
 [docs/technical_document.md](docs/technical_document.md).
@@ -16,7 +17,9 @@ The approach, the data used and the measured results are in
 - Python 3.12 and [uv](https://docs.astral.sh/uv/)
 - macOS: `brew install libomp` (needed by LightGBM)
 
-All Python dependencies are pinned in `uv.lock`.
+All Python dependencies are pinned in `uv.lock`. PyTorch is needed only to retrain the sequence
+network (`uv run --with torch ...`, below); the submission runs it in NumPy from the committed
+weights.
 
 ## Data
 
@@ -41,7 +44,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-9543092669d62888a20a7ecfe1302f09018bc420efedf20e26ac06cc7a451655
+fd0544fa184435f9397eb070440b636123a4cb9d5c161eef2f8dc0a7875e37eb
 ```
 
 Check the format with the organisers' validator:
@@ -78,17 +81,33 @@ into `external/metrica`), and its decoder is chosen on the Metrica games:
 uv run python scripts/compare_training_sets.py <dir A>          # DFL / Metrica / both (~30 min)
 uv run python scripts/tune_metrica_weight.py <dir A> <dir B>     # Metrica weight 2, 3, 5 (~25 min)
 uv run python scripts/check_weight2.py <dir C>                   # DFL check, SkillCorner test,
-cp <dir C>/{possession_lgb.txt,change_lgb.txt,decoder.json} models/   # final model (~30 min)
+cp <dir C>/{possession_lgb.txt,change_lgb.txt} models/           # final LightGBM models (~30 min)
 uv run python scripts/compare_domains.py       # feature distributions, provided vs DFL
 ```
+
+Then the sequence network, averaged with LightGBM. `test_ensemble.py` writes the single model's
+out-of-fold predictions that the network is compared with (and tests averaging five LightGBM
+models, which was not adopted); the network itself needs PyTorch:
+
+```bash
+uv run python scripts/test_ensemble.py <dir D>                                  # (~1 h)
+uv run --with torch python scripts/test_sequence_model.py train <dir E>         # (~11 min, Apple GPU)
+uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --base single  # (~11 min)
+cp <dir E>/{sequence_net.npz,decoder.json} models/
+```
+
+Training the network on a GPU is not bit-for-bit reproducible; the submission uses the committed
+weights (`models/sequence_net.npz`).
 
 `check_weight2.py` also loads the SkillCorner matches (for the test that rejected them), so
 `external/skillcorner` must be in place.
 
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
-profile; `models/change_lgb.txt` is the change model; `models/cv_report.json` holds the
-comparison of training sets.
+profile; `models/change_lgb.txt` is the change model; `models/sequence_net.npz` the sequence
+network; `models/cv_report.json` holds the comparison of training sets,
+`models/sequence_cv_report.json` the network's test and `models/ensemble_cv_report.json` the
+ensemble's (all aggregates only).
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned
@@ -121,8 +140,9 @@ The tests use synthetic data and the public files of the challenge repository on
 ## Layout
 
 ```
-src/possession/   loaders (io_atd, io_dfl), features, decoder, rules, degradation, model,
-                  camera proxy, broadcast sync, pipeline
+src/possession/   loaders (io_atd, io_dfl, io_metrica, io_skillcorner), features, decoder,
+                  rules, degradation, model, sequence network (NumPy inference), camera proxy,
+                  broadcast sync, pipeline
 scripts/          the commands above
 models/           committed model, decoder settings, profiles and reports (aggregates only)
 third_party/mtah2027/   the challenge repository, vendored unmodified (MIT)

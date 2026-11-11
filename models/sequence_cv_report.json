@@ -1,0 +1,320 @@
+{
+ "base": {
+  "metrica:1": {
+   "spell_f1": 0.723296354992076,
+   "strict": 0.6561014263074485,
+   "decoder": [
+    12,
+    75,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7145762711864407,
+   "strict": 0.6372881355932204,
+   "decoder": [
+    25,
+    75,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.732923076923077,
+   "strict": 0.6338461538461538,
+   "decoder": [
+    25,
+    75,
+    5000,
+    1.0
+   ]
+  }
+ },
+ "nn": {
+  "metrica:1": {
+   "spell_f1": 0.7116719242902207,
+   "strict": 0.6466876971608834,
+   "decoder": [
+    12,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7109612141652615,
+   "strict": 0.6374367622259697,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.713595166163142,
+   "strict": 0.5861027190332326,
+   "decoder": [
+    12,
+    50,
+    2000,
+    1.0
+   ]
+  }
+ },
+ "blend": {
+  "metrica:1": {
+   "spell_f1": 0.7362041467304625,
+   "strict": 0.6602870813397129,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7171477079796265,
+   "strict": 0.6519524617996605,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7366818873668188,
+   "strict": 0.6331811263318112,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "base_name": "single",
+ "best_candidate": "blend",
+ "smoke": false,
+ "metrica_gain": 0.0064126796584380585,
+ "metrica_rule_passed": true,
+ "base_dfl": {
+  "dfl:J03WMX": {
+   "spell_f1": 0.5149817295980512,
+   "strict": 0.3556638246041413,
+   "decoder": [
+    12,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WN1": {
+   "spell_f1": 0.5625441696113074,
+   "strict": 0.39811542991755006,
+   "decoder": [
+    12,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WOH": {
+   "spell_f1": 0.6166910688140556,
+   "strict": 0.48023426061493407,
+   "decoder": [
+    12,
+    75,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WOY": {
+   "spell_f1": 0.5900128040973112,
+   "strict": 0.4455825864276569,
+   "decoder": [
+    12,
+    75,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WPY": {
+   "spell_f1": 0.5991701244813278,
+   "strict": 0.46749654218533887,
+   "decoder": [
+    12,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WQQ": {
+   "spell_f1": 0.6411034482758622,
+   "strict": 0.4993103448275862,
+   "decoder": [
+    12,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WR9": {
+   "spell_f1": 0.6030769230769232,
+   "strict": 0.4523076923076923,
+   "decoder": [
+    12,
+    75,
+    2000,
+    1.0
+   ]
+  }
+ },
+ "blend_dfl": {
+  "dfl:J03WMX": {
+   "spell_f1": 0.5226993865030675,
+   "strict": 0.37791411042944784,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WN1": {
+   "spell_f1": 0.556416464891041,
+   "strict": 0.39467312348668276,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WOH": {
+   "spell_f1": 0.5985007496251875,
+   "strict": 0.4827586206896551,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WOY": {
+   "spell_f1": 0.5937984496124031,
+   "strict": 0.4547803617571059,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WPY": {
+   "spell_f1": 0.5934751773049645,
+   "strict": 0.4709219858156028,
+   "decoder": [
+    25,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WQQ": {
+   "spell_f1": 0.6458970792767732,
+   "strict": 0.49235048678720444,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WR9": {
+   "spell_f1": 0.632781954887218,
+   "strict": 0.4932330827067669,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  }
+ },
+ "dfl_mean": 0.5919384660143792,
+ "base_dfl_mean": 0.5896543239935484,
+ "dfl_check_passed": true,
+ "adopt": true,
+ "decoder": {
+  "min_len": [
+   25,
+   25,
+   75
+  ],
+  "switch_penalty": 0,
+  "change_weight": 1.0,
+  "chosen_on": "mean spellF1 of the 3 Metrica games, out of fold",
+  "mean_on_metrica": 0.7315466094545743
+ },
+ "networks": {
+  "metrica:1": {
+   "val_loss": 0.2474768158282213,
+   "steps": 750,
+   "stop_on": "dfl:J03WR9"
+  },
+  "metrica:2": {
+   "val_loss": 0.25140069270984106,
+   "steps": 1000,
+   "stop_on": "dfl:J03WR9"
+  },
+  "metrica:3": {
+   "val_loss": 0.2339837663737101,
+   "steps": 750,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WMX": {
+   "val_loss": 0.24808960355879422,
+   "steps": 1500,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WN1": {
+   "val_loss": 0.24491083242383058,
+   "steps": 750,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WOH": {
+   "val_loss": 0.24991669219792978,
+   "steps": 750,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WOY": {
+   "val_loss": 0.25355910020689304,
+   "steps": 1000,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WPY": {
+   "val_loss": 0.26353816429397753,
+   "steps": 500,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WQQ": {
+   "val_loss": 0.25759281667324735,
+   "steps": 1250,
+   "stop_on": "dfl:J03WR9"
+  },
+  "dfl:J03WR9": {
+   "val_loss": 0.2295895221738343,
+   "steps": 2500,
+   "stop_on": "dfl:J03WQQ"
+  },
+  "final": {
+   "val_loss": 0.25508927566553785,
+   "steps": 1750,
+   "stop_on": "dfl:J03WR9"
+  }
+ },
+ "rule": "fixed before the run (2026-11-11): the better candidate on the 3 Metrica games replaces the baseline only if better on all three and the mean rises by >= 0.005; DFL mean >= 0.572"
+}

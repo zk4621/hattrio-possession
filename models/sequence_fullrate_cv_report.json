@@ -1,0 +1,175 @@
+{
+ "base": {
+  "metrica:1": {
+   "spell_f1": 0.7362041467304625,
+   "strict": 0.6602870813397129,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7171477079796265,
+   "strict": 0.6519524617996605,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7366818873668188,
+   "strict": 0.6331811263318112,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "change": {
+  "metrica:1": {
+   "spell_f1": 0.7300476947535771,
+   "strict": 0.6581875993640699,
+   "decoder": [
+    12,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7122448979591838,
+   "strict": 0.6462585034013606,
+   "decoder": [
+    25,
+    25,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7352671755725192,
+   "strict": 0.6320610687022901,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "alone": {
+  "metrica:1": {
+   "spell_f1": 0.73344,
+   "strict": 0.6624,
+   "decoder": [
+    12,
+    75,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7142857142857142,
+   "strict": 0.6496598639455782,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7438271604938271,
+   "strict": 0.6450617283950617,
+   "decoder": [
+    25,
+    75,
+    2000,
+    1.0
+   ]
+  }
+ },
+ "change_quality": {
+  "metrica:1": {
+   "detector": {
+    "average_precision": 0.7064500026158903,
+    "mean_p_on_changes": 0.5264856844106411
+   },
+   "network": {
+    "average_precision": 0.7372436938683905,
+    "mean_p_on_changes": 0.6457871526293711
+   },
+   "average": {
+    "average_precision": 0.7485564815264193,
+    "mean_p_on_changes": 0.5861364185200062
+   }
+  },
+  "metrica:2": {
+   "detector": {
+    "average_precision": 0.6652897455049152,
+    "mean_p_on_changes": 0.5052588682351432
+   },
+   "network": {
+    "average_precision": 0.6611513514302513,
+    "mean_p_on_changes": 0.5196656495128161
+   },
+   "average": {
+    "average_precision": 0.6871757659415445,
+    "mean_p_on_changes": 0.5124622588739797
+   }
+  },
+  "metrica:3": {
+   "detector": {
+    "average_precision": 0.7346597522169714,
+    "mean_p_on_changes": 0.49262485411908297
+   },
+   "network": {
+    "average_precision": 0.7398891724552125,
+    "mean_p_on_changes": 0.536995608846653
+   },
+   "average": {
+    "average_precision": 0.7624411047404197,
+    "mean_p_on_changes": 0.514810231482868
+   }
+  }
+ },
+ "experiment": "fullrate",
+ "base_name": "single",
+ "seeds": [
+  0
+ ],
+ "frame_seeds": [
+  0
+ ],
+ "best_candidate": "alone",
+ "smoke": false,
+ "metrica_gain": 0.0005063775675444582,
+ "metrica_rule_passed": false,
+ "rule": "fixed before the run (2026-11-11): the better candidate on the 3 Metrica games replaces the baseline only if better on all three and the mean rises by >= 0.005; DFL mean >= 0.572",
+ "networks": {
+  "seed 0": {
+   "metrica:1": {
+    "val_loss": 0.30220843567334427,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.29690475386246784,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.2884243347855668,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   }
+  }
+ },
+ "note": "one seed (rule fixed before the run); change head on every frame: the network state interpolated to every frame plus the change detector's 87 inputs that are not window averages, 5 dilated convolutions (1, 2, 4, 8, 16); change loss weight 1.0; frames labelled X left out of the change loss; change probabilities averaged with weight 0.5 ('change') or used alone ('alone'); the DFL networks were not trained because the Metrica part failed"
+}

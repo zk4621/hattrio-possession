@@ -1,0 +1,371 @@
+{
+ "base": {
+  "metrica:1": {
+   "spell_f1": 0.7362041467304625,
+   "strict": 0.6602870813397129,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7171477079796265,
+   "strict": 0.6519524617996605,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7366818873668188,
+   "strict": 0.6331811263318112,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "avg": {
+  "metrica:1": {
+   "spell_f1": 0.7361769352290679,
+   "strict": 0.6635071090047393,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7137521222410866,
+   "strict": 0.6383701188455009,
+   "decoder": [
+    25,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7475113122171946,
+   "strict": 0.6515837104072398,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  }
+ },
+ "experiment": "avg",
+ "base_name": "single",
+ "seeds": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "frame_seeds": [
+  0
+ ],
+ "best_candidate": "avg",
+ "smoke": false,
+ "metrica_gain": 0.0024688758701469915,
+ "metrica_rule_passed": false,
+ "rule": "fixed before the run (2026-11-11): the better candidate on the 3 Metrica games replaces the baseline only if better on all three and the mean rises by >= 0.005; DFL mean >= 0.572",
+ "networks": {
+  "seed 0": {
+   "metrica:1": {
+    "val_loss": 0.2474768158282213,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.25140069270984106,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.2339837663737101,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.24808960355879422,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.24491083242383058,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.24991669219792978,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.25355910020689304,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.26353816429397753,
+    "steps": 500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.25759281667324735,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.2295895221738343,
+    "steps": 2500,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.25508927566553785,
+    "steps": 1750,
+    "stop_on": "dfl:J03WR9"
+   }
+  },
+  "seed 1": {
+   "metrica:1": {
+    "val_loss": 0.24153487302259646,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.24854439373371676,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.23101652613274998,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.2443507257885136,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.2565548095245824,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.23813604440537411,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.24898442970984955,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.25218330546733986,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.24950201980782574,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.21822586086368326,
+    "steps": 1750,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.23778825023334,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   }
+  },
+  "seed 2": {
+   "metrica:1": {
+    "val_loss": 0.2443521392648699,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.24470101433058825,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.24676386251138763,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.26284365684359356,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.2539068320196761,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.2615289741700333,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.27399744450126434,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.2715107654350288,
+    "steps": 500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.2660939748258863,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.2193791616243524,
+    "steps": 3000,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.24522804561916783,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   }
+  },
+  "seed 3": {
+   "metrica:1": {
+    "val_loss": 0.23960246792306644,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.2425177753797828,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.23674198256255746,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.25538249302108523,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.25334496269619716,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.24754952255761928,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.2576317371604464,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.26243230196564343,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.25212287103854125,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.2370502178485577,
+    "steps": 1000,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.24769316501368643,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   }
+  },
+  "seed 4": {
+   "metrica:1": {
+    "val_loss": 0.2579535774122088,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.24340880593109313,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.24990327248711175,
+    "steps": 1750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.2588160640556887,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.2605638649858027,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.24639011857636525,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.24607983141517387,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.2662423648995973,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.24214501256364301,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.222967672934229,
+    "steps": 1250,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.2377414516940963,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   }
+  }
+ },
+ "note": "seed 0 is the submitted network; not adopted, so models/ keeps the single network"
+}

@@ -82,7 +82,9 @@ players.
   parameters are tuned on the metric itself (`spellF1`), on the training matches.
 - *A separate model for where a change happens*: the metric rewards boundaries within a few
   frames, and the frame model, reading windows of up to 20 s, smears them; the change model reads
-  what happens on the frame itself.
+  what happens on the frame itself. A change output on the sequence network did not help: on
+  every 5th frame it marked the change frames far less sharply; on every frame it marked them as
+  sharply as the change model, yet did not raise the score (section 3).
 - *Smart Tagging as model input, learned on other matches*: the DFL matches have no Smart
   Tagging, so we built Smart-Tagging-like tags for them (section 3) and let the model learn how
   far to trust a tag, instead of writing rules on top of the tags whose effect nobody could
@@ -268,13 +270,63 @@ the same as for the ensemble:
 |---|---|---|---|---|---|---|
 | LightGBM alone (weight 2) | 0.723 | 0.715 | 0.733 | 0.724 | 0.642 | 0.590 |
 | network alone | 0.712 | 0.711 | 0.714 | 0.712 | 0.623 | – |
-| average of both (submitted) | 0.736 | 0.717 | 0.737 | **0.730** | **0.649** | 0.592 |
+| average of both (submitted) | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** | 0.592 |
 
 The average is better on all three games (+0.006) and keeps the DFL matches (0.592), so it was
 adopted; the decoder was then chosen again on the Metrica games (no fixed switch cost). The final
 network is trained on nine matches (DFL match J03WR9 decides when to stop). The NumPy inference
 agrees with PyTorch to within 6·10⁻⁷ in probability. `scripts/test_sequence_model.py` trains
 (with PyTorch, about 11 minutes on an Apple M4 Pro GPU), evaluates and exports it.
+
+**Five networks, and a change output on the network (neither adopted).** Two follow-ups, each
+under the same rule, fixed before its run. First, five networks with different random seeds
+(seed 0 is the submitted one; the others stopped between 500 and 3,000 steps), averaged with each
+other and then with LightGBM. Second, a network with a fourth output, "the label changes within
+2 frames of this step" (the change detector's target, on every 5th frame), trained on the sum of
+both losses; its change probabilities were averaged half and half with the change detector's,
+alone or together with its frame probabilities in place of the submitted network's. Because the
+five networks were not adopted, this second test used one network, as fixed before the run.
+
+| candidate | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
+|---|---|---|---|---|---|
+| submitted: LightGBM averaged with one network | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** |
+| five networks instead of one | 0.736 | 0.714 | 0.748 | 0.732 | 0.651 |
+| change probabilities averaged with the new network's | 0.727 | 0.713 | 0.730 | 0.724 | 0.636 |
+| the same, and frame probabilities from the new network | 0.716 | 0.714 | 0.734 | 0.722 | 0.637 |
+
+Five networks gain 0.0025 and are better on one game only (game 3; game 1 is 0.00002 lower,
+game 2 0.003 lower).
+The change output is worse on all three games. It marks the change frames much less sharply than
+the detector: their average precision (1 = every change frame ranked above every other frame) is
+0.431–0.442 against 0.665–0.735, and the mean probability on change frames 0.23–0.28 against
+0.49–0.53. The network sees every 5th frame, so it knows that a change is near but not on which
+frame; averaged in, it blurs the detector's boundaries (average precision 0.635–0.698). Run with
+`scripts/test_sequence_model.py --experiment avg` and `--experiment boundary`; the reports are
+`models/sequence_avg_cv_report.json` and `models/sequence_boundary_cv_report.json`.
+
+**A change output on every frame (not adopted).** A third follow-up, under the same rule fixed
+before its run, tested whether the second failed only because it was too coarse. The network got
+a second head that works on every frame: the network's state, interpolated between steps, plus
+the change detector's 87 inputs that are not window averages (what the frame shows on its own,
+and the 17 change features), through five dilated convolutions that see ±31 frames (1.2 s). Its
+target is the detector's own; frames labelled `X` are left out, as for the detector. One network
+(seed 0, stopped after 750 to 1,500 steps); its change probabilities were averaged half and half
+with the detector's, or used in its place.
+
+| candidate | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
+|---|---|---|---|---|---|
+| submitted | 0.736 | 0.717 | 0.737 | **0.730** | 0.648 |
+| change probabilities averaged with the new network's | 0.730 | 0.712 | 0.735 | 0.726 | 0.646 |
+| the new network's change probabilities alone | 0.733 | 0.714 | 0.744 | 0.731 | 0.652 |
+
+On every frame the network marks the change frames as sharply as the detector (average precision
+0.661–0.740 against 0.665–0.735; mean probability on change frames 0.52–0.65 against 0.49–0.53),
+and the average of the two more sharply than either (0.687–0.762). The score does not follow: the
+average is worse on all three games, and the network alone gains 0.0005 and is better on game 3
+only. Not adopted, so the DFL networks were not trained (`--experiment fullrate`;
+`models/sequence_fullrate_cv_report.json`). Together with the larger change-model weights that did
+not help (section 6), this suggests that how sharply the change frames are marked no longer limits
+the score.
 
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
@@ -390,8 +442,8 @@ example 1.62 against 1.64 phase tags active at once).
   our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
 - *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL, DFL-only model) says the model
-  memorises match specifics. Stronger regularisation and averaging several LightGBM models did not
-  help on the Metrica games (section 3); more matches would.
+  memorises match specifics. Stronger regularisation and averaging several LightGBM models or
+  several networks did not help on the Metrica games (section 3); more matches would.
 - Turnovers deep inside a long blackout are guessed from team movement only.
 - *Ceilings measured on the DFL matches* (before the change model). With the ball never lost,
   the method scored 0.69 (0.59 with blackouts), so the blackouts cost about 0.10. With perfect
@@ -409,8 +461,8 @@ example 1.62 against 1.64 phase tags active at once).
   0.0004 of each other: the decoder is on a plateau.
 
 **With more time** we would: find what else Metrica's "players in the box" counts; add matches
-from other providers; use the broadcast ball despite its small coverage, with a threshold judged on
-the training matches; and detect stoppages from the referee's whistle in the audio track. The
+from other providers; use the broadcast ball despite its small coverage, with a threshold judged
+on the training matches; and detect stoppages from the referee's whistle in the audio track. The
 video ball detector puts the true ball first on 59 % of the frames where the tracking sees it and
 among its top five boxes on 66 %; a tracker that picks, among the boxes, the one consistent with
 where the ball was last seen might keep the right one. That would need a new rule fixed in

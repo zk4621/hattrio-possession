@@ -92,12 +92,28 @@ models, which was not adopted); the network itself needs PyTorch:
 ```bash
 uv run python scripts/test_ensemble.py <dir D>                                  # (~1 h)
 uv run --with torch python scripts/test_sequence_model.py train <dir E>         # (~11 min, Apple GPU)
-uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --base single  # (~11 min)
-cp <dir E>/{sequence_net.npz,decoder.json} models/
+uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D>     # (~11 min)
+cp <dir E>/nn_s0.npz models/sequence_net.npz
+cp <dir E>/decoder_blend.json models/decoder.json
 ```
 
 Training the network on a GPU is not bit-for-bit reproducible; the submission uses the committed
 weights (`models/sequence_net.npz`).
+
+Three follow-ups, none adopted: five networks averaged, and a network with a change output on
+every 5th frame or (second head) on every frame, whose change probabilities are averaged with the
+change model's or, on every frame, also used in its place:
+
+```bash
+uv run --with torch python scripts/test_sequence_model.py train <dir E> --seeds 1 2 3 4  # (~45 min)
+uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment avg \
+    --seeds 0 1 2 3 4                                                            # (~1 min)
+uv run --with torch python scripts/test_sequence_model.py train <dir E> --kind mt  # (~11 min)
+uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment boundary
+uv run --with torch python scripts/test_sequence_model.py train <dir E> --kind fr --parts metrica
+# (~12 min and ~13 GB of memory)
+uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment fullrate
+```
 
 `check_weight2.py` also loads the SkillCorner matches (for the test that rejected them), so
 `external/skillcorner` must be in place.
@@ -106,8 +122,9 @@ weights (`models/sequence_net.npz`).
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
 profile; `models/change_lgb.txt` is the change model; `models/sequence_net.npz` the sequence
 network; `models/cv_report.json` holds the comparison of training sets,
-`models/sequence_cv_report.json` the network's test and `models/ensemble_cv_report.json` the
-ensemble's (all aggregates only).
+`models/sequence_cv_report.json` the network's test, `models/ensemble_cv_report.json` the
+ensemble's, `models/sequence_avg_cv_report.json`, `models/sequence_boundary_cv_report.json` and
+`models/sequence_fullrate_cv_report.json` the three follow-ups (all aggregates only).
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned

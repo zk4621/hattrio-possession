@@ -1,0 +1,215 @@
+{
+ "base": {
+  "metrica:1": {
+   "spell_f1": 0.7362041467304625,
+   "strict": 0.6602870813397129,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7171477079796265,
+   "strict": 0.6519524617996605,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7366818873668188,
+   "strict": 0.6331811263318112,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "change": {
+  "metrica:1": {
+   "spell_f1": 0.7273301737756713,
+   "strict": 0.6445497630331753,
+   "decoder": [
+    12,
+    75,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7133671742808798,
+   "strict": 0.6429780033840947,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7304084720121029,
+   "strict": 0.6202723146747353,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "both": {
+  "metrica:1": {
+   "spell_f1": 0.7163987138263666,
+   "strict": 0.6463022508038585,
+   "decoder": [
+    12,
+    25,
+    5000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7144278606965175,
+   "strict": 0.6368159203980099,
+   "decoder": [
+    25,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.7338345864661654,
+   "strict": 0.6285714285714286,
+   "decoder": [
+    25,
+    25,
+    0,
+    1.0
+   ]
+  }
+ },
+ "change_quality": {
+  "metrica:1": {
+   "detector": {
+    "average_precision": 0.7064500026158903,
+    "mean_p_on_changes": 0.5264856844106411
+   },
+   "network": {
+    "average_precision": 0.44153932555308645,
+    "mean_p_on_changes": 0.27074166409408246
+   },
+   "average": {
+    "average_precision": 0.6744314903279072,
+    "mean_p_on_changes": 0.39861367425236177
+   }
+  },
+  "metrica:2": {
+   "detector": {
+    "average_precision": 0.6652897455049152,
+    "mean_p_on_changes": 0.5052588682351432
+   },
+   "network": {
+    "average_precision": 0.43072407082604985,
+    "mean_p_on_changes": 0.278306604111904
+   },
+   "average": {
+    "average_precision": 0.6354790165875653,
+    "mean_p_on_changes": 0.3917827361735236
+   }
+  },
+  "metrica:3": {
+   "detector": {
+    "average_precision": 0.7346597522169714,
+    "mean_p_on_changes": 0.49262485411908297
+   },
+   "network": {
+    "average_precision": 0.43560771806746584,
+    "mean_p_on_changes": 0.22776468866673064
+   },
+   "average": {
+    "average_precision": 0.6975021632150736,
+    "mean_p_on_changes": 0.36019477139290684
+   }
+  }
+ },
+ "experiment": "boundary",
+ "base_name": "single",
+ "seeds": [
+  0
+ ],
+ "frame_seeds": [
+  0
+ ],
+ "best_candidate": "change",
+ "smoke": false,
+ "metrica_gain": -0.006309307336084702,
+ "metrica_rule_passed": false,
+ "rule": "fixed before the run (2026-11-11): the better candidate on the 3 Metrica games replaces the baseline only if better on all three and the mean rises by >= 0.005; DFL mean >= 0.572",
+ "networks": {
+  "seed 0": {
+   "metrica:1": {
+    "val_loss": 0.3137658034139744,
+    "steps": 1000,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:2": {
+    "val_loss": 0.3030538882123788,
+    "steps": 1750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "metrica:3": {
+    "val_loss": 0.29077863386312863,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WMX": {
+    "val_loss": 0.29687579404112957,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WN1": {
+    "val_loss": 0.31657376461667586,
+    "steps": 750,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOH": {
+    "val_loss": 0.29317931328629193,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WOY": {
+    "val_loss": 0.3084289927015398,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WPY": {
+    "val_loss": 0.3193529574182432,
+    "steps": 1250,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WQQ": {
+    "val_loss": 0.30859775969984016,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   },
+   "dfl:J03WR9": {
+    "val_loss": 0.28183026489643703,
+    "steps": 2000,
+    "stop_on": "dfl:J03WQQ"
+   },
+   "final": {
+    "val_loss": 0.2989520213992338,
+    "steps": 1500,
+    "stop_on": "dfl:J03WR9"
+   }
+  }
+ },
+ "note": "one seed, because 'avg' was not adopted (rule fixed before the run); change output loss weight 1.0, change probabilities averaged with weight 0.5"
+}

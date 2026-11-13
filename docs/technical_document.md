@@ -373,6 +373,40 @@ any stretch in which a player is missing), and the true in-play periods given, s
 dead-ball state. Not adopted. `scripts/test_pathcrf.py` reruns it; the report is
 `models/pathcrf_report.json`.
 
+**Self-training on the match itself (not adopted).** The frame model scores 0.89 on DFL matches
+it was trained on and 0.59 on the others, so knowing the match is worth a lot, and the rules allow
+labels produced by an algorithm on the provided match, provided no person decides any of them. We
+tested whether the model's own labels can teach it the match. The test was run on the Metrica
+games, where the true labels are known. For each game, the submitted pipeline's out-of-fold labels
+(decoder chosen on the other two games) became training targets on the frames where the ball is
+visible. On the in-play frames among them those labels are right 93.6–94.4 % of the time, against
+67–80 % where the ball is missing. The rows themselves came from a copy of the game with extra
+ball blackouts drawn from the measured profile (28–36 % of those frames hidden), so they show this
+match with the ball lost. We tried two ways to use them, both on LightGBM only (the network, the
+change model and the decoder grid stayed as they were):
+
+- *pool*: LightGBM retrained from scratch with these rows added at weight 2;
+- *tune*: the out-of-fold model with 100 more rounds on these rows alone.
+
+The rule was fixed before the run (2026-11-13), as for the network: the candidate must beat the
+submission on all three games and raise the mean by at least 0.005, then pass the DFL check. The
+retrained out-of-fold models reproduce the saved predictions exactly. `spellF1` on each game,
+with the decoder chosen on the other two:
+
+| model | game 1 | game 2 | game 3 | mean |
+|---|---|---|---|---|
+| submitted | 0.736 | 0.717 | 0.737 | 0.730 |
+| pool | 0.737 | 0.714 | 0.728 | 0.726 |
+| tune | 0.693 | 0.684 | 0.701 | 0.693 |
+
+The rule was not met: *pool* is better on one game, by 0.001, and *tune* is worse on all three.
+Our reading, not measured: the labels the model learns from are the decoder's, already merged
+into possessions of at least 1 s. The frame model therefore learns its own mistakes and blurrier
+hand-overs, and `spellF1` depends heavily on hand-overs being on time (section 6). *Tune*, which
+learns from these labels alone, loses the most. Not adopted, so the DFL check was not run.
+`scripts/test_self_training.py` reruns the test (about 11 minutes); the report is
+`models/self_training_report.json`.
+
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
 pass/fail correctness check with a threshold fixed in advance (section 6).
@@ -487,8 +521,9 @@ example 1.62 against 1.64 phase tags active at once).
   our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
 - *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL, DFL-only model) says the model
-  memorises match specifics. Stronger regularisation and averaging several LightGBM models or
-  several networks did not help on the Metrica games (section 3); more matches would.
+  memorises match specifics. Stronger regularisation, averaging several LightGBM models or several
+  networks, and training on the match's own predicted labels did not help on the Metrica games
+  (section 3); more matches with real labels would.
 - Turnovers deep inside a long blackout are guessed from team movement only. A published model
   that reads possession from the players alone did no better on the DFL labels (section 3).
 - *Ceilings measured on the DFL matches* (before the change model). With the ball never lost,

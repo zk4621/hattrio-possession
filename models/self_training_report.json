@@ -1,0 +1,143 @@
+{
+ "rule": "fixed before the run (2026-11-13): the better candidate on the 3 Metrica games is adopted only if better than the submitted pipeline on all three and the mean rises by >= 0.005; then the DFL mean must stay >= 0.572",
+ "smoke": false,
+ "settings": {
+  "self_weight": 2.0,
+  "tune_rounds": 100,
+  "rounds": 400,
+  "copy_seed": 5000,
+  "blend": 0.5,
+  "decoder_settings": 108
+ },
+ "metrica": {
+  "base": {
+   "metrica:1": {
+    "spell_f1": 0.7362041467304625,
+    "strict": 0.6602870813397129,
+    "decoder": [
+     25,
+     75,
+     0,
+     1.0
+    ]
+   },
+   "metrica:2": {
+    "spell_f1": 0.7171477079796265,
+    "strict": 0.6519524617996605,
+    "decoder": [
+     25,
+     50,
+     2000,
+     1.0
+    ]
+   },
+   "metrica:3": {
+    "spell_f1": 0.7366818873668188,
+    "strict": 0.6331811263318112,
+    "decoder": [
+     25,
+     75,
+     0,
+     1.0
+    ]
+   }
+  },
+  "pool": {
+   "metrica:1": {
+    "spell_f1": 0.7372799999999999,
+    "strict": 0.6624,
+    "decoder": [
+     25,
+     75,
+     2000,
+     0.5
+    ]
+   },
+   "metrica:2": {
+    "spell_f1": 0.7141396933560478,
+    "strict": 0.647359454855196,
+    "decoder": [
+     25,
+     25,
+     0,
+     1.0
+    ]
+   },
+   "metrica:3": {
+    "spell_f1": 0.7277777777777777,
+    "strict": 0.6265432098765432,
+    "decoder": [
+     25,
+     75,
+     5000,
+     1.0
+    ]
+   }
+  },
+  "tune": {
+   "metrica:1": {
+    "spell_f1": 0.6926216640502355,
+    "strict": 0.5934065934065934,
+    "decoder": [
+     25,
+     75,
+     2000,
+     1.0
+    ]
+   },
+   "metrica:2": {
+    "spell_f1": 0.6842465753424658,
+    "strict": 0.6164383561643836,
+    "decoder": [
+     12,
+     25,
+     5000,
+     1.0
+    ]
+   },
+   "metrica:3": {
+    "spell_f1": 0.7009174311926605,
+    "strict": 0.5749235474006116,
+    "decoder": [
+     25,
+     75,
+     2000,
+     1.0
+    ]
+   }
+  }
+ },
+ "metrica_stats": {
+  "metrica:1": {
+   "base_vs_saved_max_abs_diff": 0.0,
+   "pseudo_right_seen_pct": 93.73826065310371,
+   "pseudo_right_unseen_pct": 79.94101857738222,
+   "team_right_seen_live_pct": 94.50701806046328,
+   "seen_pct_of_inplay": 60.94782284870971,
+   "copy_hides_pct_of_seen": 35.62877639231483,
+   "own_rows": 88378
+  },
+  "metrica:2": {
+   "base_vs_saved_max_abs_diff": 0.0,
+   "pseudo_right_seen_pct": 93.575398917054,
+   "pseudo_right_unseen_pct": 67.43065187239945,
+   "team_right_seen_live_pct": 94.66145190741746,
+   "seen_pct_of_inplay": 59.13740825753068,
+   "copy_hides_pct_of_seen": 27.127557621352246,
+   "own_rows": 83476
+  },
+  "metrica:3": {
+   "base_vs_saved_max_abs_diff": 0.0,
+   "pseudo_right_seen_pct": 94.36219729746355,
+   "pseudo_right_unseen_pct": 78.91054030115147,
+   "team_right_seen_live_pct": 95.32356661045532,
+   "seen_pct_of_inplay": 68.35274495788309,
+   "copy_hides_pct_of_seen": 28.730340995304392,
+   "own_rows": 97538
+  }
+ },
+ "best_candidate": "pool",
+ "metrica_gain": -0.0036120903143608274,
+ "metrica_rule_passed": false,
+ "adopt": false
+}

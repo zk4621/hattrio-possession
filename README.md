@@ -132,6 +132,13 @@ external/pathcrf/.venv/bin/python scripts/test_pathcrf.py compare <dir F> \
     --oof <dir A>/oof.npz --oof-single <dir D>/oof_dfl_single.npz
 ```
 
+Self-training on the match itself (the model's own labels as training data; not adopted), judged
+on the Metrica games; `<dir D>` and `<dir E>` are the directories written above:
+
+```bash
+uv run python scripts/test_self_training.py <dir G> --oof <dir D> --nn <dir E>   # (~11 min)
+```
+
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
 profile; `models/change_lgb.txt` is the change model; `models/sequence_net.npz` the sequence
@@ -139,7 +146,7 @@ network; `models/cv_report.json` holds the comparison of training sets,
 `models/sequence_cv_report.json` the network's test, `models/ensemble_cv_report.json` the
 ensemble's, `models/sequence_avg_cv_report.json`, `models/sequence_boundary_cv_report.json` and
 `models/sequence_fullrate_cv_report.json` the three follow-ups, `models/pathcrf_report.json` the
-PathCRF test (all aggregates only).
+PathCRF test, `models/self_training_report.json` the self-training test (all aggregates only).
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned

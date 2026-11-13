@@ -44,7 +44,7 @@ This writes `outputs/HatTrio.csv` and prints its SHA-256. It uses only the commi
 (`models/`) and the match data; it takes a few seconds. Expected SHA-256 of the submitted file:
 
 ```
-fd0544fa184435f9397eb070440b636123a4cb9d5c161eef2f8dc0a7875e37eb
+fdaf2ed296c5f9ab21eaab832e6f57e17034b481facdf53d2885154a164d1a9e
 ```
 
 Check the format with the organisers' validator:
@@ -139,6 +139,24 @@ on the Metrica games; `<dir D>` and `<dir E>` are the directories written above:
 uv run python scripts/test_self_training.py <dir G> --oof <dir D> --nn <dir E>   # (~11 min)
 ```
 
+The Metrica labels were then corrected (ball missing for at least 2 s inside a team's stretch =
+dead ball, `possession/io_metrica.py`), which the loaders apply automatically, and everything
+trained on them was retrained and compared with the previous submission (adopted). This produced
+the committed `possession_lgb.txt`, `change_lgb.txt`, `sequence_net.npz` and `decoder.json`:
+
+```bash
+uv run python scripts/check_metrica_relabel.py lgb <dir D'>                           # (~20 min)
+uv run --with torch python scripts/test_sequence_model.py train <dir E'>             # (~11 min)
+uv run python scripts/check_metrica_relabel.py compare <dir D'> --nn <dir E'> \
+    --old-oof <dir D> --old-nn <dir E> --out <dir H>                                 # (~1 min)
+cp <dir D'>/{possession_lgb.txt,change_lgb.txt} models/
+cp <dir E'>/nn_s0.npz models/sequence_net.npz
+cp <dir H>/decoder.json models/decoder.json
+```
+
+The earlier steps above were run with the uncorrected labels; rerun now, they use the corrected
+ones.
+
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
 profile; `models/change_lgb.txt` is the change model; `models/sequence_net.npz` the sequence
@@ -146,7 +164,8 @@ network; `models/cv_report.json` holds the comparison of training sets,
 `models/sequence_cv_report.json` the network's test, `models/ensemble_cv_report.json` the
 ensemble's, `models/sequence_avg_cv_report.json`, `models/sequence_boundary_cv_report.json` and
 `models/sequence_fullrate_cv_report.json` the three follow-ups, `models/pathcrf_report.json` the
-PathCRF test, `models/self_training_report.json` the self-training test (all aggregates only).
+PathCRF test, `models/self_training_report.json` the self-training test,
+`models/relabel_report.json` the corrected Metrica labels (all aggregates only).
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned

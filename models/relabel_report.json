@@ -1,0 +1,232 @@
+{
+ "rule": "fixed before the run (2026-11-13): adopt if the DFL mean is at least the submission's minus 0.005 and the mean on the 3 Metrica games, scored against the corrected labels, is at least the submission's",
+ "smoke": false,
+ "submitted_metrica": {
+  "metrica:1": {
+   "spell_f1": 0.7308176100628931,
+   "strict": 0.6477987421383647,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7417218543046358,
+   "strict": 0.6721854304635762,
+   "decoder": [
+    25,
+    50,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.726015037593985,
+   "strict": 0.6165413533834586,
+   "decoder": [
+    25,
+    75,
+    0,
+    1.0
+   ]
+  }
+ },
+ "submitted_dfl": {
+  "dfl:J03WMX": {
+   "spell_f1": 0.5226993865030675,
+   "strict": 0.37791411042944784,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WN1": {
+   "spell_f1": 0.556416464891041,
+   "strict": 0.39467312348668276,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WOH": {
+   "spell_f1": 0.5985007496251875,
+   "strict": 0.4827586206896551,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WOY": {
+   "spell_f1": 0.5937984496124031,
+   "strict": 0.4547803617571059,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WPY": {
+   "spell_f1": 0.5934751773049645,
+   "strict": 0.4709219858156028,
+   "decoder": [
+    25,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WQQ": {
+   "spell_f1": 0.6458970792767732,
+   "strict": 0.49235048678720444,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WR9": {
+   "spell_f1": 0.632781954887218,
+   "strict": 0.4932330827067669,
+   "decoder": [
+    12,
+    25,
+    0,
+    1.0
+   ]
+  }
+ },
+ "relabelled_metrica": {
+  "metrica:1": {
+   "spell_f1": 0.7699199999999999,
+   "strict": 0.704,
+   "decoder": [
+    12,
+    75,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:2": {
+   "spell_f1": 0.7928221859706361,
+   "strict": 0.7340946166394778,
+   "decoder": [
+    12,
+    25,
+    2000,
+    1.0
+   ]
+  },
+  "metrica:3": {
+   "spell_f1": 0.767489114658926,
+   "strict": 0.664731494920174,
+   "decoder": [
+    25,
+    50,
+    0,
+    0.0
+   ]
+  }
+ },
+ "relabelled_dfl": {
+  "dfl:J03WMX": {
+   "spell_f1": 0.5321909424724602,
+   "strict": 0.401468788249694,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WN1": {
+   "spell_f1": 0.5645687645687646,
+   "strict": 0.41491841491841486,
+   "decoder": [
+    12,
+    25,
+    0,
+    0.5
+   ]
+  },
+  "dfl:J03WOH": {
+   "spell_f1": 0.63012912482066,
+   "strict": 0.4992826398852224,
+   "decoder": [
+    12,
+    50,
+    0,
+    1.0
+   ]
+  },
+  "dfl:J03WOY": {
+   "spell_f1": 0.5783068783068782,
+   "strict": 0.4470899470899471,
+   "decoder": [
+    12,
+    25,
+    2000,
+    1.0
+   ]
+  },
+  "dfl:J03WPY": {
+   "spell_f1": 0.6063448275862069,
+   "strict": 0.4689655172413793,
+   "decoder": [
+    25,
+    75,
+    0,
+    0.5
+   ]
+  },
+  "dfl:J03WQQ": {
+   "spell_f1": 0.6404312668463612,
+   "strict": 0.49056603773584906,
+   "decoder": [
+    12,
+    25,
+    0,
+    0.5
+   ]
+  },
+  "dfl:J03WR9": {
+   "spell_f1": 0.6244047619047619,
+   "strict": 0.47916666666666663,
+   "decoder": [
+    12,
+    25,
+    0,
+    0.5
+   ]
+  }
+ },
+ "means": {
+  "submitted_metrica": 0.732851500653838,
+  "submitted_dfl": 0.5919384660143792,
+  "relabelled_metrica": 0.7767437668765207,
+  "relabelled_dfl": 0.5966252237865847
+ },
+ "dfl_check_passed": true,
+ "metrica_check_passed": true,
+ "adopt": true,
+ "decoder": {
+  "min_len": [
+   12,
+   12,
+   25
+  ],
+  "switch_penalty": 2000,
+  "change_weight": 1.0,
+  "chosen_on": "mean spellF1 of the 3 Metrica games (corrected labels), out of fold",
+  "mean_on_metrica": 0.7878406616036701
+ }
+}

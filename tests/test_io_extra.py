@@ -2,7 +2,7 @@ import json
 
 import numpy as np
 
-from possession.io_metrica import metrica_labels
+from possession.io_metrica import dead_in_gaps, metrica_labels
 from possession.io_skillcorner import load_skillcorner
 from possession.labels import A, D, H, X
 
@@ -69,3 +69,18 @@ def test_metrica_labels_follow_events():
     assert y[19:29].tolist() == [D] * 10             # ball out until the throw-in
     assert y[29:].tolist() == [A] * 11
     assert X not in y.tolist()
+
+
+def test_dead_in_gaps_marks_long_ball_gaps_dead():
+    y = np.array([H] * 10 + [A] * 10 + [D] * 5 + [H] * 5, np.int8)
+    period = np.array([1] * 28 + [0] * 2, np.int8)
+    ball = np.zeros((30, 2))
+    ball[2:4] = np.nan            # 2 frames: too short, unchanged
+    ball[8:14] = np.nan           # 6 frames across a team change: dead
+    ball[18:24] = np.nan          # 6 frames ending in a stoppage: the live part becomes dead
+    ball[28:] = np.nan            # outside the halves: ignored
+    out = dead_in_gaps(y, ball, period, min_len=5)
+    assert out[:8].tolist() == [H] * 8 and out[14:18].tolist() == [A] * 4
+    assert (out[8:14] == D).all() and (out[18:25] == D).all()
+    assert out[25:].tolist() == [H] * 5
+    assert y[8] == H                                  # the input is not changed

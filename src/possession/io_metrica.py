@@ -8,6 +8,11 @@ tracking, so these games are used as they are, without simulated blackouts.
 Labels come from Metrica's own events: a team has the ball from its pass, carry, recovery, shot,
 lost ball or set piece onwards; a challenge changes nothing; the ball is dead from a "BALL OUT",
 a "FAULT RECEIVED" or the end of a goal until the next set piece, and before each kick-off.
+
+The events miss many stoppages (a shot wide, a foul recorded as a challenge, an offside): the
+labels stayed with a team while play stood still. Where the tracking has no ball for at least
+2 s (DEAD_GAP) inside a stretch labelled with a team, the ball is dead there (`dead_in_gaps`);
+on those frames the players move as slowly as in labelled stoppages.
 """
 from __future__ import annotations
 
@@ -28,6 +33,7 @@ PITCH = (105.0, 68.0)
 GAMES = ["1", "2", "3"]
 POSSESSION_EVENTS = {"PASS", "CARRY", "RECOVERY", "SHOT", "BALL LOST", "SET PIECE"}
 DEAD_EVENTS = {"BALL OUT", "FAULT RECEIVED"}
+DEAD_GAP = 50          # frames (2 s) without a ball that make a stoppage
 KIND = {"KICK OFF": "kickoff", "CORNER KICK": "corner", "FREE KICK": "freekick",
         "THROW IN": "throw", "GOAL KICK": "goalkick"}
 
@@ -57,6 +63,21 @@ def metrica_labels(events, period: np.ndarray) -> np.ndarray:
         if b > a:
             y[a:b] = state
     return y
+
+
+def dead_in_gaps(y: np.ndarray, ball: np.ndarray, period: np.ndarray,
+                 min_len: int = DEAD_GAP) -> np.ndarray:
+    """`y` with D on every run of at least `min_len` frames inside a half where the ball is
+    missing; frames labelled with a team elsewhere are unchanged."""
+    out = np.array(y, copy=True)
+    gap = (period > 0) & ~np.isfinite(ball[:, 0])
+    m = np.concatenate(([0], gap.astype(np.int8), [0]))
+    d = np.diff(m)
+    for a, z in zip(np.flatnonzero(d == 1), np.flatnonzero(d == -1)):
+        if z - a >= min_len:
+            seg = out[a:z]
+            seg[(seg == H) | (seg == A)] = D
+    return out
 
 
 def _set_pieces(events) -> list[tuple[str, int, int]]:
@@ -188,7 +209,7 @@ def load_metrica_game(g: str):
                         home=z["home"], away=z["away"], home_speed=z["home_speed"],
                         away_speed=z["away_speed"], period=z["period"])
         sp = [(str(k), int(r), int(t)) for k, r, t in zip(z["sp_kind"], z["sp_row"], z["sp_team"])]
-        return ft, z["y"], sp
+        return ft, dead_in_gaps(z["y"], ft.ball, ft.period), sp
     ft, events = _epts_game() if g == "3" else _csv_game(g)
     y = metrica_labels(events, ft.period)
     from .labels import X
@@ -200,4 +221,4 @@ def load_metrica_game(g: str):
              sp_kind=np.array([k for k, _, _ in sp], dtype="U12"),
              sp_row=np.array([r for _, r, _ in sp], dtype=np.int64),
              sp_team=np.array([t for _, _, t in sp], dtype=np.int64))
-    return ft, y, sp
+    return ft, dead_in_gaps(y, ft.ball, ft.period), sp

@@ -42,7 +42,8 @@ players.
 3. **Model.** LightGBM, three classes (`H`, `A`, `D`), deterministic CPU training, trained on
    seven Bundesliga matches, whose clean tracking was corrupted to look like the provided one, and
    the three Metrica Sports sample games, weighted twice, which come from the provided match's
-   tracking provider and lose the ball as often (section 3).
+   tracking provider and lose the ball as often (section 3). Their labels come from Metrica's
+   events, corrected where the events miss a stoppage (section 3).
    Home/away symmetry is encouraged (not guaranteed) by training on every match in both orientations (teams and
    labels swapped).
 4. **Sequence network.** A small convolutional network over time reads the same 223 features on
@@ -63,8 +64,8 @@ players.
    `min_len` frames long. The cost of a switch on frame t is 1,000 × (−logit of the change model
    on t), at least 0: free where the change model expects a change more likely than not, dear
    elsewhere. Tuned on the Metrica games, the training matches closest to the provided one:
-   possessions ≥ 25 frames (1 s), dead-ball stretches ≥ 75 frames (3 s), change-model weight 1,
-   no fixed cost per switch (5,000 before the sequence network was added).
+   possessions ≥ 12 frames (0.5 s), dead-ball stretches ≥ 25 frames (1 s), change-model weight 1,
+   a fixed cost of 2,000 per switch (chosen again after the Metrica labels were corrected).
 7. **Kick-off.** Frames of a half before the Smart Tagging "Kick Off (Start)" tag of that half are
    forced to `D` (the second half's graded window opens before its kick-off).
 
@@ -192,7 +193,7 @@ ball outside SkillCorner's phases of play) and the three Metrica Sports sample g
 (https://github.com/metrica-sports/sample-data; the provider of the match's tracking; labels
 derived by us from Metrica's events: a team has the ball from its pass, carry, recovery, shot,
 lost ball or set piece on, the ball is dead from a ball-out, a foul or a goal until the next set
-piece). Both already lose the ball on about 40 % of frames, so they were used without simulated
+piece; corrected later, see *Corrected Metrica labels* below). Both already lose the ball on about 40 % of frames, so they were used without simulated
 blackouts; their possessions change 15-19 times per 5 minutes, against 26 in the DFL labels. The
 rule fixed before the run asked for three things; the first two held and the third did not:
 
@@ -276,7 +277,7 @@ the same as for the ensemble:
 |---|---|---|---|---|---|---|
 | LightGBM alone (weight 2) | 0.723 | 0.715 | 0.733 | 0.724 | 0.642 | 0.590 |
 | network alone | 0.712 | 0.711 | 0.714 | 0.712 | 0.623 | – |
-| average of both (submitted) | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** | 0.592 |
+| average of both (then submitted) | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** | 0.592 |
 
 The average is better on all three games (+0.006) and keeps the DFL matches (0.592), so it was
 adopted; the decoder was then chosen again on the Metrica games (no fixed switch cost). The final
@@ -295,7 +296,7 @@ five networks were not adopted, this second test used one network, as fixed befo
 
 | candidate | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
 |---|---|---|---|---|---|
-| submitted: LightGBM averaged with one network | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** |
+| then submitted: LightGBM averaged with one network | 0.736 | 0.717 | 0.737 | **0.730** | **0.648** |
 | five networks instead of one | 0.736 | 0.714 | 0.748 | 0.732 | 0.651 |
 | change probabilities averaged with the new network's | 0.727 | 0.713 | 0.730 | 0.724 | 0.636 |
 | the same, and frame probabilities from the new network | 0.716 | 0.714 | 0.734 | 0.722 | 0.637 |
@@ -321,7 +322,7 @@ with the detector's, or used in its place.
 
 | candidate | Metrica 1 | Metrica 2 | Metrica 3 | mean | strict |
 |---|---|---|---|---|---|
-| submitted | 0.736 | 0.717 | 0.737 | **0.730** | 0.648 |
+| then submitted | 0.736 | 0.717 | 0.737 | **0.730** | 0.648 |
 | change probabilities averaged with the new network's | 0.730 | 0.712 | 0.735 | 0.726 | 0.646 |
 | the new network's change probabilities alone | 0.733 | 0.714 | 0.744 | 0.731 | 0.652 |
 
@@ -395,7 +396,7 @@ with the decoder chosen on the other two:
 
 | model | game 1 | game 2 | game 3 | mean |
 |---|---|---|---|---|
-| submitted | 0.736 | 0.717 | 0.737 | 0.730 |
+| then submitted | 0.736 | 0.717 | 0.737 | 0.730 |
 | pool | 0.737 | 0.714 | 0.728 | 0.726 |
 | tune | 0.693 | 0.684 | 0.701 | 0.693 |
 
@@ -407,6 +408,35 @@ learns from these labels alone, loses the most. Not adopted, so the DFL check wa
 `scripts/test_self_training.py` reruns the test (about 11 minutes); the report is
 `models/self_training_report.json`.
 
+**Corrected Metrica labels (adopted).** Checking where the ball goes missing showed that the
+Metrica events miss many stoppages. On every game, 8–14 minutes were labelled as one team's
+possession while the tracking had no ball and the players moved as slowly as in labelled
+stoppages (1.1–1.2 m/s on average, against 1.9–2.1 m/s in labelled play and 1.1–1.2 m/s in
+labelled stoppages). The events just before those stretches are mostly a shot wide (31 % of those
+frames), a foul recorded as a challenge (about 18 %), a ball lost under pressure (12 %) or an
+offside (4 %): restarts the event-to-label rule did not know. The labels now mark the ball dead
+wherever the tracking has no ball for at least 2 s inside a stretch labelled with a team
+(`possession/io_metrica.py`, `dead_in_gaps`). This changes 8–15 % of each game's frames; dead ball
+rises from 25–34 % to 33–44 % of in-play frames, close to the DFL matches (45 %).
+
+Everything trained on the Metrica games was retrained on the corrected labels, with the same
+settings: the LightGBM frame and change models (Metrica weight 2), the sequence network, and the
+decoder, chosen again on the Metrica games. Rule fixed before the run (2026-11-13): adopt if the
+mean on the 7 DFL matches (labels unchanged) is at least the submission's minus 0.005 and the
+mean on the 3 Metrica games, scored against the corrected labels, is at least the submission's.
+Both pipelines are scored the same way, each match predicted by models that never saw it, decoder
+chosen on the other matches of its test set:
+
+| pipeline | Metrica 1 | Metrica 2 | Metrica 3 | Metrica mean | DFL mean |
+|---|---|---|---|---|---|
+| previous submission | 0.731 | 0.742 | 0.726 | 0.733 | 0.592 |
+| retrained on corrected labels (submitted) | 0.770 | 0.793 | 0.768 | **0.777** | **0.597** |
+
+Both conditions held: the Metrica games rose on all three, and the DFL matches, whose labels did
+not change, rose too (5 of 7 better). Adopted. The comparisons earlier in this section were made
+with the old Metrica labels and are kept as they were run. `scripts/check_metrica_relabel.py`
+reruns it; the report is `models/relabel_report.json`.
+
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
 pass/fail correctness check with a threshold fixed in advance (section 6).
@@ -415,17 +445,17 @@ pass/fail correctness check with a threshold fixed in advance (section 6).
 
 - **Dead ball** is whatever the model calls dead: in training, the DFL "ball dead" status and, on
   the Metrica games, the stoppages in Metrica's events (from a ball-out, foul or goal to the next
-  set piece). The
+  set piece) plus every stretch of at least 2 s without a ball inside a team's possession. The
   strongest dead-ball cues the model learned are the ball outside the pitch when last seen and
   players standing still.
 - **Loose and contested balls** follow the DFL possession flag and, on the Metrica games,
   Metrica's events: a recovery changes possession, a challenge does not. The decoder will not
-  create a possession shorter than 1 s, and creates a short one only where the change model sees
+  create a possession shorter than 0.5 s, and creates a short one only where the change model sees
   a change; the minimum was chosen on the Metrica games.
 - **Blackouts.** No label is ever left open: the model reads possession from team shape and
   movement and from who had the ball before and after the blackout; the decoder keeps a
   possession through a blackout unless the evidence for a change outweighs that for staying.
-- **Restarts** split possessions: a dead-ball stretch of at least 3 s separates two possessions,
+- **Restarts** split possessions: a dead-ball stretch of at least 1 s separates two possessions,
   even of the same team.
 - **Smart Tagging** enters as evidence, not as a rule: from the simulated tags the model learned
   how often a tag's team really has the ball, and when play resumes around a set-piece tag.
@@ -440,7 +470,7 @@ uv run python scripts/make_submission.py --team HatTrio --proba model
 ```
 
 With the data bundle in `data/` (or `MTAH_DATA_DIR`) this regenerates `outputs/HatTrio.csv`
-exactly (SHA-256 `fd0544fa184435f9397eb070440b636123a4cb9d5c161eef2f8dc0a7875e37eb`; checked by
+exactly (SHA-256 `fdaf2ed296c5f9ab21eaab832e6f57e17034b481facdf53d2885154a164d1a9e`; checked by
 running it twice). Retraining from scratch, including the DFL download, is described in the
 README; LightGBM runs with `deterministic=True`, every random draw has a fixed seed. The sequence
 network's weights are committed (`models/sequence_net.npz`, 0.6 MB): retraining it on a GPU is
@@ -448,8 +478,9 @@ not bit-for-bit reproducible, and the submission uses the committed weights.
 
 ## 6. Results and limitations
 
-**The submitted model** (LightGBM on DFL + Metrica, weight 2, averaged with the sequence network)
-scores 0.736, 0.717 and 0.737 (mean 0.730) on the three Metrica games it never saw (section 3). **How the model was built up**, on the DFL matches with DFL-only
+**The submitted model** (LightGBM on DFL + Metrica, weight 2, averaged with the sequence network,
+all trained on the corrected Metrica labels) scores 0.770, 0.793 and 0.768 (mean 0.777) on the
+three Metrica games it never saw, and 0.597 on the DFL matches (section 3). **How the model was built up**, on the DFL matches with DFL-only
 training (leave one match out, corrupted tracking, official scorer):
 
 | match | baseline `spellF1` | rules `spellF1` | model `spellF1` | model `macroF1` |
@@ -473,26 +504,27 @@ the 7 matches improved):
 | + phase tags | 0.587 | 5 of 7 |
 | + change model | 0.594 | 5 of 7 |
 | + Metrica games in training, weight 2 | 0.590 | – (judged on the Metrica games) |
-| + sequence network, averaged (submitted) | 0.592 | – (judged on the Metrica games) |
+| + sequence network, averaged | 0.592 | – (judged on the Metrica games) |
+| + corrected Metrica labels (submitted) | 0.597 | 5 of 7 |
 
 Frame accuracy of the DFL-only model is 88.9 % inside simulated blackouts (87.7 % without tags)
 and 94.4 % where the ball is visible. The model predicts 279–339 possessions per match against
 370–511 true ones: most of the missing ones are very short.
 
-**On the provided match** (no labels, so no score): 298 possessions, mean 12.8 s; graded frames
-37 % `H`, 23 % `A`, 40 % `D`. On the five public minutes (a correctness check only, passed: it
+**On the provided match** (no labels, so no score): 285 possessions, mean 12.7 s; graded frames
+34 % `H`, 23 % `A`, 43 % `D`. On the five public minutes (a correctness check only, passed: it
 required `spellF1` ≥ 0.3256 and home/away right on at least half of the live frames; the ball is
-visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.594, home/away
-correct on 92.9 % of live frames, 16 predicted possessions against 17 true ones. Earlier models
-scored 0.613 (LightGBM alone, weight 2), 0.571 (weight 1), 0.645 (DFL only) and 0.619 (tracking
+visible on 88 % of them against 59 % of the match, so it is optimistic): `spellF1` 0.568, home/away
+correct on 91.9 % of live frames, 14 predicted possessions against 17 true ones. Earlier models
+scored 0.594 (before the Metrica labels were corrected), 0.613 (LightGBM alone, weight 2), 0.571 (weight 1), 0.645 (DFL only) and 0.619 (tracking
 only) there; one possession moves the score by about 0.06 in those
 five minutes, against about 1,000 possessions in the three Metrica games, and by the rules the
 public window does not choose between versions.
 
 **Blackout consistency without labels.** We added simulated blackouts where the ball is visible
 on the real match and compared the two predictions: on the newly blacked-out frames they agree on
-84.5 % of frames (78.2 % with LightGBM alone, 77.6 % with tracking only), and the possessions match
-with `spellF1` 0.85 (0.82, 0.79). The sequence network makes the prediction steadier through
+83.2 % of frames (84.5 % before the Metrica labels were corrected, 78.2 % with LightGBM alone,
+77.6 % with tracking only), and the possessions match with `spellF1` 0.84 (0.85, 0.82, 0.79). The sequence network makes the prediction steadier through
 blackouts; they still cost something like a sixth of the frame decisions they cover.
 
 **Domain check.** Feature distributions on the real match and on the corrupted DFL matches were
@@ -504,11 +536,13 @@ example 1.62 against 1.64 phase tags active at once).
 
 **Limitations.**
 
-- *The closest estimate of the score on this match* is the submitted model's 0.730 on the three
+- *The closest estimate of the score on this match* is the submitted model's 0.777 on the three
   Metrica sample games, each predicted by a model that never saw it: same tracking provider, the
   ball missing on 32-41 % of frames, possessions changing about as often as in the public five
-  minutes. Their labels were derived by us from Metrica's events, not from corrected tracking, so
-  this is an estimate.
+  minutes. Their labels were derived by us from Metrica's events and corrected where the ball is
+  missing for at least 2 s, not taken from corrected tracking, so this is an estimate; the
+  correction itself raises the score these games give (the previous submission scores 0.733
+  against the corrected labels, 0.730 against the old ones).
 - *The DFL score is not the score on this match.* The training labels are another provider's
   possession flag, the corruption is a model of the real tracking's defects, and the DFL tags are
   our model of Metrica's tagging; "players in the box" fires 97 times on this match and only 57
@@ -517,8 +551,8 @@ example 1.62 against 1.64 phase tags active at once).
 - *Short possessions are missed.* The public window has two (0.8 s and 1.3 s) and we find
   neither; on the DFL matches we predict a quarter to a third fewer possessions than there are.
 - *Stoppages are under-detected on the public window*: dead ball is 19.6 % of it, our output
-  4.8 %. Three stoppages of 14–20 s are mostly labelled as possession there. On the whole match
-  our output is 37 % dead ball, so this may be specific to those minutes; we cannot tell without
+  6.5 %. Three stoppages of 14–20 s are mostly labelled as possession there. On the whole match
+  our output is 43 % dead ball, so this may be specific to those minutes; we cannot tell without
   labels.
 - *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL, DFL-only model) says the model
   memorises match specifics. Stronger regularisation, averaging several LightGBM models or several

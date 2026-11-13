@@ -209,7 +209,8 @@ tests/            pytest suite
 
 ## Licences and credits
 
-- Own code: team HatTrio (no licence file yet; the team chooses one before publishing).
+- Own code and documentation: team HatTrio, MIT licence (`LICENSE`). The licence does not cover
+  the match data, which is not in this repository and must not be added to it.
 - `third_party/mtah2027/`: the challenge repository by Metrica Sports, MIT licence, vendored
   unmodified at commit `f8f2629` (see `VENDORED.md`).
 - Training data, Metrica Sports sample games (https://github.com/metrica-sports/sample-data),

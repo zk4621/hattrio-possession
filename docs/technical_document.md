@@ -85,6 +85,12 @@ players.
   what happens on the frame itself. A change output on the sequence network did not help: on
   every 5th frame it marked the change frames far less sharply; on every frame it marked them as
   sharply as the change model, yet did not raise the score (section 3).
+- *Our own frame model rather than a published ball-free one*: PathCRF (Kim et al. 2026) reads
+  possession from the players alone, decodes it with legal hand-overs only, and reports the right
+  team on 92 % of in-play frames of one of our DFL matches. Measured on that match against the
+  DFL labels, it names the right team less often than our frame model (88.7 % against 91.0 %;
+  88.1 % against 89.3 % where our simulated tracking loses the ball), and it needs every player
+  tracked with an identity and has no dead-ball state (section 3).
 - *Smart Tagging as model input, learned on other matches*: the DFL matches have no Smart
   Tagging, so we built Smart-Tagging-like tags for them (section 3) and let the model learn how
   far to trust a tag, instead of writing rules on top of the tags whose effect nobody could
@@ -328,6 +334,45 @@ only. Not adopted, so the DFL networks were not trained (`--experiment fullrate`
 not help (section 6), this suggests that how sharply the change frames are marked no longer limits
 the score.
 
+**A published ball-free model, PathCRF (not adopted).** Kim, Lee, Seo, Ko, Yoon and Park (2026),
+*PathCRF: Ball-Free Soccer Event Detection via Possession Path Inference from Player
+Trajectories*, KDD 2026 (https://arxiv.org/abs/2602.12080; code and trained models
+https://github.com/hyunsungkim-ds/pathcrf, MPL-2.0), read from the players' tracks alone, without
+the ball, which player has the ball or which pass is under way, every 5th frame, and decode the
+sequence with a conditional random field that allows only legal hand-overs (a pass ends with the
+player it was played to). The model is trained on the same DFL dataset (five matches, J03WQQ for
+validation) and tested on J03WR9, where the paper reports the right team on 92.4 % of in-play
+frames. That would beat our frame model where it is weakest, inside blackouts, so we ran the
+published model on J03WR9 with a rule fixed before the run: continue only if it names the right
+team on at least 92 of 100 in-play frames where our simulated tracking of that match has no ball
+(42 % of them), judged against the DFL flag. Our frame model, trained on the other six DFL matches
+and never on J03WR9, does 89.3 there. Our numbers are the frame model's more likely team (`H` or
+`A`), before the decoder.
+
+Run as its repository's tutorial runs it, the published model reproduces the paper: the right
+possession state (one of 676: a player on the ball, a pass between two players, or the ball going
+out over one of the four lines) on 69.5 % of steps (paper 69.64 %), events found with F1 75.6 %
+(75.69 %), the right team on 91.6 % of frames (92.40 %; our run of its preprocessing finds 1,783
+events where the paper counts 1,831). Which team, on the 85,316 in-play frames of J03WR9, in
+percent of frames:
+
+| model | DFL flag: all | DFL flag: no ball | PathCRF's labels: all | PathCRF's labels: no ball |
+|---|---|---|---|---|
+| PathCRF (published) | 88.7 | **88.1** | 92.7 | 91.7 |
+| our frame model, other 6 DFL matches | 91.0 | 89.3 | 89.5 | 87.8 |
+| submitted LightGBM (+ Metrica, weight 2) | 90.7 | 88.7 | 89.4 | 86.8 |
+
+Not passed: 88.1, and 88.9 if the 1.2 % of frames on which PathCRF names no team (it reckons the
+ball is going out) are left out. Each model is best on the labels it was trained on. PathCRF's
+labels (the team of the ball touches, split half way between two touches by different teams)
+agree with the DFL flag on 90 % of in-play frames, so its 92 % measures how well it reproduces its
+own definition of possession rather than a better reading of the players. It also had two
+advantages ours did not: all 22 players tracked without gaps and with identities (the provided
+tracking has 46 anonymous track slots and 20.5 players on average, and the published code skips
+any stretch in which a player is missing), and the true in-play periods given, since it has no
+dead-ball state. Not adopted. `scripts/test_pathcrf.py` reruns it; the report is
+`models/pathcrf_report.json`.
+
 **Nothing from the provided match was used as a label.** No frame of it was annotated by a person
 for any purpose, and the five public minutes of ground truth were used once, at the end, as a
 pass/fail correctness check with a threshold fixed in advance (section 6).
@@ -444,7 +489,8 @@ example 1.62 against 1.64 phase tags active at once).
 - *A large gap between in-sample and out-of-fold scores* (0.89 vs 0.59 on DFL, DFL-only model) says the model
   memorises match specifics. Stronger regularisation and averaging several LightGBM models or
   several networks did not help on the Metrica games (section 3); more matches would.
-- Turnovers deep inside a long blackout are guessed from team movement only.
+- Turnovers deep inside a long blackout are guessed from team movement only. A published model
+  that reads possession from the players alone did no better on the DFL labels (section 3).
 - *Ceilings measured on the DFL matches* (before the change model). With the ball never lost,
   the method scored 0.69 (0.59 with blackouts), so the blackouts cost about 0.10. With perfect
   knowledge of every frame, a 2 s minimum possession length alone caps the score at 0.87 and a

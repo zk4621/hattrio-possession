@@ -1,0 +1,113 @@
+{
+ "rule": "PathCRF >= 92.0 % right team on in-play frames without the ball (our simulated blackouts), against the DFL flag",
+ "columns": [
+  "all",
+  "ball seen",
+  "no ball"
+ ],
+ "reproduction": {
+  "edge_acc_pct": 69.5,
+  "event_precision_pct": 72.16,
+  "event_recall_pct": 79.36,
+  "event_f1_pct": 75.59,
+  "events_true": 1783,
+  "events_predicted": 1961,
+  "team_acc_their_measure_pct": 91.63696895807934,
+  "team_frames": 85304,
+  "paper": {
+   "edge_acc_pct": 69.64,
+   "event_f1_pct": 75.69,
+   "events_true": 1831,
+   "events_predicted": 1961,
+   "team_acc_pct": 92.4,
+   "team_frames": 85304
+  }
+ },
+ "frame_alignment_pct": 100.0,
+ "in_play_frames": 85316,
+ "no_ball_pct_of_in_play": 41.91,
+ "all_frames": {
+  "frames": 85304,
+  "pathcrf_names_no_team_pct": 1.16,
+  "vs_dfl_flag": {
+   "PathCRF (published, trial 140)": [
+    88.73206414705055,
+    89.16829804839654,
+    88.12753461054398
+   ],
+   "ours: LightGBM, other 6 DFL matches": [
+    90.99221607427553,
+    92.21780459746918,
+    89.29380506222905
+   ],
+   "ours: submitted LightGBM (+ Metrica, weight 2)": [
+    90.6534277407859,
+    92.0846031201437,
+    88.67011606768284
+   ]
+  },
+  "vs_pathcrf_labels": {
+   "PathCRF (published, trial 140)": [
+    92.74091268037043,
+    93.46133994012594,
+    91.74800102438608
+   ],
+   "ours: LightGBM, other 6 DFL matches": [
+    89.50800449879155,
+    90.77526582017137,
+    87.76143186409811
+   ],
+   "ours: submitted LightGBM (+ Metrica, weight 2)": [
+    89.35844360956231,
+    91.20883658511407,
+    86.80818370657029
+   ]
+  },
+  "labels_agree_pct": 90.04
+ },
+ "pathcrf_names_a_team": {
+  "frames": 84312,
+  "pathcrf_names_no_team_pct": 0.0,
+  "vs_dfl_flag": {
+   "PathCRF (published, trial 140)": [
+    89.7760698358478,
+    90.37576451817456,
+    88.94848270995061
+   ],
+   "ours: LightGBM, other 6 DFL matches": [
+    91.22900654711074,
+    92.4008427598339,
+    89.61185603387437
+   ],
+   "ours: submitted LightGBM (+ Metrica, weight 2)": [
+    90.92181421387228,
+    92.30470268169452,
+    89.01340860973889
+   ]
+  },
+  "vs_pathcrf_labels": {
+   "PathCRF (published, trial 140)": [
+    93.11189861252927,
+    93.90921915193759,
+    92.01506806312605
+   ],
+   "ours: LightGBM, other 6 DFL matches": [
+    89.79518289386749,
+    91.16670815699942,
+    87.9084501013099
+   ],
+   "ours: submitted LightGBM (+ Metrica, weight 2)": [
+    89.59096642440988,
+    91.50900340220728,
+    86.95242715675923
+   ]
+  },
+  "labels_agree_pct": 90.26
+ },
+ "team_changes_per_5min": {
+  "DFL flag": 24.4,
+  "PathCRF labels": 23.0,
+  "PathCRF prediction": 21.1
+ },
+ "passed": false
+}

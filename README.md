@@ -118,13 +118,28 @@ uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --ex
 `check_weight2.py` also loads the SkillCorner matches (for the test that rejected them), so
 `external/skillcorner` must be in place.
 
+A published ball-free model, PathCRF (not adopted), against our frame model on DFL match J03WR9,
+its test match. It runs in its own environment (tested at the repository's commit `1b7c6f8`);
+`<dir A>` and `<dir D>` are the directories written above:
+
+```bash
+git clone https://github.com/hyunsungkim-ds/pathcrf external/pathcrf
+cd external/pathcrf && uv venv .venv --python 3.12 && VIRTUAL_ENV=.venv uv pip install torch==2.15.0 \
+    torch_geometric kloppy "pandas<3" pyarrow scipy scikit-learn matplotlib tqdm rdp seaborn && cd ../..
+external/pathcrf/.venv/bin/python scripts/test_pathcrf.py prep <dir F>                # (~1.5 min)
+external/pathcrf/.venv/bin/python scripts/test_pathcrf.py infer <dir F> --device mps  # (~1 min)
+external/pathcrf/.venv/bin/python scripts/test_pathcrf.py compare <dir F> \
+    --oof <dir A>/oof.npz --oof-single <dir D>/oof_dfl_single.npz
+```
+
 `models/sources.json` records which extra sources were adopted (Smart Tagging yes; camera
 proxy and broadcast ball no); `models/tag_profile.json` holds the measured Smart Tagging
 profile; `models/change_lgb.txt` is the change model; `models/sequence_net.npz` the sequence
 network; `models/cv_report.json` holds the comparison of training sets,
 `models/sequence_cv_report.json` the network's test, `models/ensemble_cv_report.json` the
 ensemble's, `models/sequence_avg_cv_report.json`, `models/sequence_boundary_cv_report.json` and
-`models/sequence_fullrate_cv_report.json` the three follow-ups (all aggregates only).
+`models/sequence_fullrate_cv_report.json` the three follow-ups, `models/pathcrf_report.json` the
+PathCRF test (all aggregates only).
 
 Experiment not in the submission: training also on the SkillCorner Open Data (MIT licence,
 credit SkillCorner) and the Metrica Sports sample games (acknowledge Metrica Sports), both cloned
@@ -178,3 +193,7 @@ tests/            pytest suite
   https://doi.org/10.1038/s41597-025-04505-y — dataset https://doi.org/10.6084/m9.figshare.28196177.v1,
   CC-BY 4.0, tracking data of the Deutsche Fußball Liga (DFL). Downloaded by
   `scripts/fetch_external.py`; not redistributed here.
+- Experiment only: PathCRF code and trained model, Kim, H., Lee, K., Seo, S., Ko, S.-K., Yoon, J.,
+  Park, C. (2026). *PathCRF: Ball-Free Soccer Event Detection via Possession Path Inference from
+  Player Trajectories.* KDD 2026. https://github.com/hyunsungkim-ds/pathcrf, MPL-2.0; cloned into
+  `external/pathcrf`, not redistributed here.

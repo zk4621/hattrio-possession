@@ -54,18 +54,22 @@ uv run pytest -q
 ## 4. Za učenje in nove poskuse
 
 - DFL tekme (2,6 GB, v `external/dfl/`): `uv run python scripts/fetch_external.py`
-- Metrica vzorčne tekme: `git clone https://github.com/metrica-sports/sample-data external/metrica`
-- Mreža čez zaporedje potrebuje PyTorch (`uv run --with torch ...`, glej README). PyTorch in LightGBM
-  nikoli ne učimo v istem procesu (dva OpenMP runtima se sesujeta), zato imajo skripte ločena koraka
-  `train` in `evaluate`.
+- Metrica vzorčne tekme: `git clone https://github.com/metrica-sports/sample-data external/metrica`,
+  nato `git -C external/metrica checkout e706dd5` (različica, na kateri so naučeni oddani modeli)
+- Mreža čez zaporedje potrebuje PyTorch (`uv run --with torch==2.15.0 ...`, glej README).
+  PyTorch in LightGBM nikoli ne učimo v istem procesu (dva OpenMP runtima se sesujeta), zato imajo
+  skripte ločena koraka `train` in `evaluate`.
 
 Napovedi trenutne verzije, s katerimi primerjaš svojo idejo (vsaka tekma napovedana z modelom, ki je
 ni videl):
 
 ```bash
 uv run python scripts/check_metrica_relabel.py lgb <dir D>                  # LightGBM, ~20 min
-uv run --with torch python scripts/test_sequence_model.py train <dir E>    # mreža, ~11 min
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E>  # mreža, ~11 min
 ```
+
+Celoten recept, s katerim iz repozitorija znova nastanejo vsi štirje oddani modeli (preverjeno: bajt
+za bajtom enaki), je v README, razdelek *Reproduce the submitted models*.
 
 Dober vzorec za nov poskus je [scripts/test_self_training.py](scripts/test_self_training.py): vzame
 `--oof <dir D> --nn <dir E>`, zgradi kandidata in ga primerja z osnovo na enak način.

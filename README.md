@@ -18,8 +18,8 @@ The approach, the data used and the measured results are in
 - macOS: `brew install libomp` (needed by LightGBM)
 
 All Python dependencies are pinned in `uv.lock`. PyTorch is needed only to retrain the sequence
-network (`uv run --with torch ...`, below); the submission runs it in NumPy from the committed
-weights.
+network (`uv run --with torch==2.15.0 ...`, below); the submission runs it in NumPy from the
+committed weights.
 
 ## Data
 
@@ -53,6 +53,42 @@ Check the format with the organisers' validator:
 uv run python third_party/mtah2027/evaluation/validate_submission.py outputs/HatTrio.csv
 ```
 
+## Reproduce the submitted models
+
+The four committed model files can be retrained from this repository and two public datasets; the
+match data is needed only for the last command. The longer history under "Retrain from scratch"
+records how the method was chosen and is not needed for this.
+
+```bash
+uv run python scripts/fetch_external.py                     # DFL dataset, 2.6 GB, MD5-checked
+git clone https://github.com/metrica-sports/sample-data external/metrica
+git -C external/metrica checkout e706dd506b360d69d9d123d5b8026e7294b13996
+uv run python scripts/check_metrica_relabel.py lgb <dir D>                         # (~19 min)
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E>   # (~10 min)
+uv run python scripts/check_metrica_relabel.py compare <dir D> --nn <dir E> \
+    --old-oof <dir D> --old-nn <dir E> --out <dir H>                               # (~1 min)
+git checkout models/relabel_report.json
+cp <dir D>/{possession_lgb.txt,change_lgb.txt} models/
+cp <dir E>/nn_s0.npz models/sequence_net.npz
+cp <dir H>/decoder.json models/decoder.json
+uv run python scripts/make_submission.py --team HatTrio --proba model
+```
+
+- `lgb` trains the frame and change models (LightGBM, the Metrica games weighted twice); `train`
+  the sequence network; `compare` chooses the decoder settings on the three Metrica games.
+- `compare` also scores a previous pipeline (`--old-oof`, `--old-nn`) for its report. The decoder
+  it saves depends on the retrained pipeline alone, so the same directories can be passed twice;
+  it then overwrites `models/relabel_report.json` with that self-comparison, which the
+  `git checkout` restores.
+- Training reads the profiles measured earlier and committed in `models/` (`atd_profile.json`,
+  `tag_profile.json`, `sources.json`); how they were measured is under "Retrain from scratch".
+
+Checked on 2026-11-16 from a fresh clone of this repository on the machine that trained the
+submission (Apple M4 Pro, PyTorch 2.15.0 on the Apple GPU): all four model files came out
+byte-identical to the committed ones, and so did `outputs/HatTrio.csv`. LightGBM is deterministic.
+The network's GPU training is not guaranteed to repeat exactly on other hardware or PyTorch
+versions, which is why its weights are committed.
+
 ## Retrain from scratch
 
 ```bash
@@ -75,7 +111,7 @@ uv run python scripts/measure_tag_profile.py --pred outputs/HatTrio.csv
 
 then with both set to `true`. The submitted model is trained on the DFL matches and the three
 Metrica Sports sample games, weighted twice (clone https://github.com/metrica-sports/sample-data
-into `external/metrica`), and its decoder is chosen on the Metrica games:
+into `external/metrica`, commit `e706dd5`), and its decoder is chosen on the Metrica games:
 
 ```bash
 uv run python scripts/compare_training_sets.py <dir A>          # DFL / Metrica / both (~30 min)
@@ -91,26 +127,30 @@ models, which was not adopted); the network itself needs PyTorch:
 
 ```bash
 uv run python scripts/test_ensemble.py <dir D>                                  # (~1 h)
-uv run --with torch python scripts/test_sequence_model.py train <dir E>         # (~11 min, Apple GPU)
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E>  # (~11 min, GPU)
 uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D>     # (~11 min)
 cp <dir E>/nn_s0.npz models/sequence_net.npz
 cp <dir E>/decoder_blend.json models/decoder.json
 ```
 
-Training the network on a GPU is not bit-for-bit reproducible; the submission uses the committed
-weights (`models/sequence_net.npz`).
+Training the network on a GPU is not guaranteed to be bit-for-bit reproducible on other hardware
+or PyTorch versions (on the machine that trained it, it was; see "Reproduce the submitted models");
+the submission uses the committed weights (`models/sequence_net.npz`).
 
 Three follow-ups, none adopted: five networks averaged, and a network with a change output on
 every 5th frame or (second head) on every frame, whose change probabilities are averaged with the
 change model's or, on every frame, also used in its place:
 
 ```bash
-uv run --with torch python scripts/test_sequence_model.py train <dir E> --seeds 1 2 3 4  # (~45 min)
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E> \
+    --seeds 1 2 3 4                                                              # (~45 min)
 uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment avg \
     --seeds 0 1 2 3 4                                                            # (~1 min)
-uv run --with torch python scripts/test_sequence_model.py train <dir E> --kind mt  # (~11 min)
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E> \
+    --kind mt                                                                    # (~11 min)
 uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment boundary
-uv run --with torch python scripts/test_sequence_model.py train <dir E> --kind fr --parts metrica
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E> \
+    --kind fr --parts metrica
 # (~12 min and ~13 GB of memory)
 uv run python scripts/test_sequence_model.py evaluate <dir E> --oof <dir D> --experiment fullrate
 ```
@@ -146,7 +186,7 @@ the committed `possession_lgb.txt`, `change_lgb.txt`, `sequence_net.npz` and `de
 
 ```bash
 uv run python scripts/check_metrica_relabel.py lgb <dir D'>                           # (~20 min)
-uv run --with torch python scripts/test_sequence_model.py train <dir E'>             # (~11 min)
+uv run --with torch==2.15.0 python scripts/test_sequence_model.py train <dir E'>    # (~11 min)
 uv run python scripts/check_metrica_relabel.py compare <dir D'> --nn <dir E'> \
     --old-oof <dir D> --old-nn <dir E> --out <dir H>                                 # (~1 min)
 cp <dir D'>/{possession_lgb.txt,change_lgb.txt} models/
